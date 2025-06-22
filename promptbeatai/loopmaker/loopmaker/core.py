@@ -43,11 +43,11 @@ class Note:
 
 class SoundGenerator(ABC):
     @abstractmethod
-    def generate(self, note: Note, steps: float) -> AudioSegment:
+    def generate(self, note: Note, duration_ms: int) -> AudioSegment:
         raise NotImplementedError
     
-    def overlay_on_canvas(self, canvas: AudioSegment, note: Note, steps: float, position_ms: int, gain: float = 0.0):
-        canvas.overlay(self.generate(note, steps).apply_gain(gain), position=position_ms)
+    def overlay_on_canvas(self, canvas: AudioSegment, note: Note, duration_ms: int, position_ms: int, gain: float = 0.0):
+        canvas.overlay(self.generate(note, duration_ms).apply_gain(gain), position=position_ms)
 
 
 class Hit(TypedDict):
@@ -69,7 +69,7 @@ class Track:
     
         for hit in self.hits:
             position_ms = int(hit['step'] * step_duration_ms)
-            self.gen.overlay_on_canvas(canvas, hit['note'], hit['steps'], position_ms, gain=self.gain)
+            self.gen.overlay_on_canvas(canvas, hit['note'], int(hit['steps'] * step_duration_ms), position_ms, gain=self.gain)
 
 
 class Loop:
