@@ -3,6 +3,28 @@ from pathlib import Path
 import jsonref
 
 
+SAMPLE_FOLDER = './assets/samples'
+def list_files_and_folders(folder):
+    folder_path = Path(folder)
+    files = []
+    folders = []
+
+    for p in folder_path.rglob('*'):
+        rel_path = str(p.relative_to(folder_path))
+        if p.is_file():
+            files.append(rel_path)
+        elif p.is_dir():
+            # Only add folder if it has no subfolders
+            if not any(child.is_dir() for child in p.iterdir()):
+                folders.append(rel_path)
+
+    files_str = '\n'.join(files)
+    folders_str = '\n'.join(folders)
+    return files_str, folders_str
+
+files, folders = list_files_and_folders(SAMPLE_FOLDER)
+
+
 def unroll_schema(path):
     with open(path) as f:
         raw = json.load(f)
@@ -17,8 +39,7 @@ def unroll_schema(path):
 song_schema = unroll_schema('./schemas/loopmaker/Song.schema.json')
 
 
-# Suprisingly it works really well with gpt-4o
-# TODO actual samples from a filepath
+# Suprisingly it works really well with gpt-4o, cost is ~2-3 cents per song
 SYSTEM_PROMPT = f'''
 You are a music composition assistant that creates structured musical pieces based on a user prompt and parameters like tempo, mood, and intensity. Your output must follow a two-step process:
 
@@ -54,14 +75,14 @@ Here is a list of samples you can use:
 
 **Filepath**:
 ```
-samples/drums/kick.mp3
-samples/drums/hihat.mp3
-samples/drums/snare.mp3
+{files}
 ```
 
 **Folderpath**:
 ```
-samples/piano/lofi_piano/
+{folders}
 ```
 '''
+
+print(SYSTEM_PROMPT)
 
