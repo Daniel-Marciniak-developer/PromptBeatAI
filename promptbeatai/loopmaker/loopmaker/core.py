@@ -42,6 +42,10 @@ class Note:
     
     def transpose(self, semitones: int) -> 'Note':
         return Note(self.midi + semitones)
+    
+    def to_frequency(self) -> float:
+        # https://en.wikipedia.org/wiki/MIDI_tuning_standard
+        return 440.0 * 2 ** ((self.midi - 69) / 12)
 
 
 class SoundGenerator(ABC):
