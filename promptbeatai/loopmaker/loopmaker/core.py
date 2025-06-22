@@ -46,6 +46,9 @@ class Note:
     def to_frequency(self) -> float:
         # https://en.wikipedia.org/wiki/MIDI_tuning_standard
         return 440.0 * 2 ** ((self.midi - 69) / 12)
+    
+    def __str__(self):
+        return self.name
 
 
 class SoundGenerator(ABC):
