@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Song",
+  "type": "object",
+  "properties": {
+    "bpm": { "type": "integer" },
+    "beats_per_bar": { "type": "integer" },
+    "steps_per_beat": { "type": "integer" },
+    "loops_in_context": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "loop": { "$ref": "#/definitions/Loop" },
+          "start_bar": { "type": "integer" },
+          "repeat_times": { "type": "integer" }
+        },
+        "required": ["loop", "start_bar"]
+      }
+    }
+  },
+  "required": ["bpm", "loops_in_context"],
+  "definitions": {
+    "Loop": { "$ref": "Loop.schema.json" }
+  }
+}

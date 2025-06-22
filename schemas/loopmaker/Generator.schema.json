@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Generator",
+  "oneOf": [
+    { "$ref": "Synth.schema.json" },
+    { "$ref": "Sampler.schema.json" },
+    { "$ref": "Piano.schema.json" }
+  ]
+}

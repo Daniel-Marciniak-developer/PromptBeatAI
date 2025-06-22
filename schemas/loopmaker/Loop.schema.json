@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Loop",
+  "type": "object",
+  "properties": {
+    "bars": { "type": "integer" },
+    "gain": { "type": "number" },
+    "mute": { "type": "boolean" },
+    "tracks": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/Track" }
+    }
+  },
+  "required": ["bars", "tracks"],
+  "definitions": {
+    "Track": { "$ref": "Track.schema.json" }
+  }
+}

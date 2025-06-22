@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SynthSettings",
+  "type": "object",
+  "properties": {
+    "type": { "const": "synth" },
+    "waveform": { "type": "string", "enum": ["sine", "square", "sawtooth", "triangle"] },
+    "ahdsr_envelope": {
+      "type": "object",
+      "properties": {
+        "attack_ms": { "type": "integer" },
+        "hold_ms": { "type": "integer" },
+        "decay_ms": { "type": "integer" },
+        "sustain_level": { "type": "number" },
+        "release_ms": { "type": "integer" }
+      }
+    },
+    "amplitude": { "type": "number" },
+    "sample_rate": { "type": "integer" }
+  },
+  "required": ["type", "waveform", "ahdsr_envelope"]
+}

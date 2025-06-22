@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Track",
+  "type": "object",
+  "properties": {
+    "gen": { "$ref": "Generator.schema.json" },
+    "hits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step": { "type": "integer" },
+          "note": { "type": "string" },
+          "steps": { "type": "number" }
+        },
+        "required": ["step", "note", "steps"]
+      }
+    },
+    "gain": { "type": "number" },
+    "mute": { "type": "boolean" }
+  },
+  "required": ["gen", "hits"]
+}
