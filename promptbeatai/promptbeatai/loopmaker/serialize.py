@@ -1,8 +1,8 @@
 from pathlib import Path
-from promptbeatai.loopmaker.loopmaker.core import Hit, Loop, LoopInContext, Note, Song, Track
-from promptbeatai.loopmaker.loopmaker.piano import Piano
-from promptbeatai.loopmaker.loopmaker.sampler import Sampler
-from promptbeatai.loopmaker.loopmaker.synth import SimpleSynth
+from promptbeatai.loopmaker.core import Hit, Loop, LoopInContext, Note, Song, Track
+from promptbeatai.loopmaker.piano import Piano
+from promptbeatai.loopmaker.sampler import Sampler
+from promptbeatai.loopmaker.synth import SimpleSynth
 
 
 def synth_from_json(synth_json: dict) -> SimpleSynth:

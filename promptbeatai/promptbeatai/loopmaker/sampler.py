@@ -1,4 +1,4 @@
-from promptbeatai.loopmaker.loopmaker.core import Note, SoundGenerator
+from promptbeatai.loopmaker.core import Note, SoundGenerator
 from typing import cast
 from pathlib import Path
 from pydub import AudioSegment

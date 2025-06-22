@@ -1,4 +1,4 @@
-from promptbeatai.loopmaker.loopmaker.core import Note, SoundGenerator
+from promptbeatai.loopmaker.core import Note, SoundGenerator
 from dataclasses import dataclass
 from enum import Enum
 from pydub import AudioSegment
