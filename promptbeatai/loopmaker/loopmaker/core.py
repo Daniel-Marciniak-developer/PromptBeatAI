@@ -24,9 +24,12 @@ class Note:
 
     @classmethod
     def from_name(cls, name: str) -> 'Note':
-        # parse like 'C#4' or 'Eb3'
-        pitch, octave = name[:-1], int(name[-1])
-        sem = _NOTE_TO_SEMITONE[pitch]
+        try:
+            # parse like 'C#4' or 'Eb3'
+            pitch, octave = name[:-1], int(name[-1])
+            sem = _NOTE_TO_SEMITONE[pitch]
+        except (KeyError, ValueError, IndexError):
+            raise ValueError(f'Invalid note name: {name}')
         midi = (octave + 1) * 12 + sem
         return cls(midi)    
 
@@ -46,8 +49,8 @@ class SoundGenerator(ABC):
     def generate(self, note: Note, duration_ms: int) -> AudioSegment:
         raise NotImplementedError
     
-    def overlay_on_canvas(self, canvas: AudioSegment, note: Note, duration_ms: int, position_ms: int, gain: float = 0.0):
-        canvas.overlay(self.generate(note, duration_ms).apply_gain(gain), position=position_ms)
+    def _overlay_on_canvas(self, canvas: AudioSegment, note: Note, duration_ms: int, position_ms: int, gain: float = 0.0) -> AudioSegment:
+        return canvas.overlay(self.generate(note, duration_ms).apply_gain(gain), position=position_ms)
 
 
 class Hit(TypedDict):
@@ -63,47 +66,47 @@ class Track:
     gain: float = 0.0
     mute: bool = False
 
-    def overlay_on_loop_canvas(self, canvas: AudioSegment, step_duration_ms: int):
+    def _overlay_on_loop_canvas(self, canvas: AudioSegment, step_duration_ms: int) -> AudioSegment:
         if self.mute:
-            return
-    
+            return canvas
+
         for hit in self.hits:
             position_ms = int(hit['step'] * step_duration_ms)
-            self.gen.overlay_on_canvas(canvas, hit['note'], int(hit['steps'] * step_duration_ms), position_ms, gain=self.gain)
+            canvas = self.gen._overlay_on_canvas(canvas, hit['note'], int(hit['steps'] * step_duration_ms), position_ms, gain=self.gain)
+
+        return canvas
 
 
 class Loop:
-    def __init__(self, bars: int = 4, gain: float = 0.0, mute: bool = False, steps_per_beat: int = 4):
+    def __init__(self, bars: int = 4, gain: float = 0.0, mute: bool = False):
         self.bars: int = bars
-        self.steps_per_beat: int = steps_per_beat
         self.tracks: dict[str, Track] = {}
         self.gain: float = gain
-        self.mute: bool = False
+        self.mute: bool = mute
 
     def add_track(self, name: str, track: Track):
         self.tracks[name] = track
 
     def remove_track(self, name: str):
-        self.tracks.pop(name)
+        self.tracks.pop(name, None)
 
     def generate(self, bpm: int, beats_per_bar: int = 4, steps_per_beat: int = 4) -> AudioSegment:
-        step_duration_ms = int(60_000 / (bpm * self.steps_per_beat))
+        step_duration_ms = int(60_000 / (bpm * steps_per_beat))
         total_steps = self.bars * beats_per_bar * steps_per_beat
         loop_duration_ms = int(total_steps * step_duration_ms)
         loop = AudioSegment.silent(duration=loop_duration_ms)
 
         for _, track in self.tracks.items():
-            track.overlay_on_loop_canvas(loop, step_duration_ms)
+            loop = track._overlay_on_loop_canvas(loop, step_duration_ms)
 
         return loop
     
-    def overlay_on_canvas(self, canvas: AudioSegment, position_ms: int, bpm: int, times: int = 1, beats_per_bar: int = 4, steps_per_beat: int = 4):
+    def _overlay_on_canvas(self, canvas: AudioSegment, position_ms: int, bpm: int, times: int = 1, beats_per_bar: int = 4, steps_per_beat: int = 4) -> AudioSegment:
         if self.mute:
-            return
+            return canvas
         own_sound = self.generate(bpm, beats_per_bar, steps_per_beat).apply_gain(self.gain)
-        canvas.overlay(own_sound, position=position_ms, times=times)
+        return canvas.overlay(own_sound, position=position_ms, times=times)
     
-
 
 @dataclass
 class LoopInContext:
@@ -122,14 +125,17 @@ class Song:
     def generate(self) -> AudioSegment:
         beat_duration_ms = int(60000 / self.bpm)
         bar_duration_ms = beat_duration_ms * self.beats_per_bar
-        last_bar_excl = max([l.start_bar + l.loop.bars * l.repeat_times for l in self.loops_in_context])
+        if self.loops_in_context:
+            last_bar_excl = max([l.start_bar + l.loop.bars * l.repeat_times for l in self.loops_in_context])
+        else:
+            last_bar_excl = 1
         duration_ms = last_bar_excl * bar_duration_ms
 
         canvas = AudioSegment.silent(duration=duration_ms)
 
         for loop_in_context in self.loops_in_context:
             position_ms = loop_in_context.start_bar * bar_duration_ms
-            loop_in_context.loop.overlay_on_canvas(
+            canvas = loop_in_context.loop._overlay_on_canvas(
                 canvas, 
                 position_ms=position_ms,
                 bpm=self.bpm,
