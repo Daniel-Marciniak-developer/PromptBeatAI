@@ -1,5 +1,7 @@
 import json
 import jsonref
+import jsonschema
+import logging
 import openai
 import os
 from pathlib import Path
@@ -7,11 +9,13 @@ import re
 from typing import cast
 
 from promptbeatai.ai.core import GenerationPrompt
-from promptbeatai.loopmaker.serialize import song_to_json
+from promptbeatai.loopmaker.serialize import song_from_json, song_to_json
+from promptbeatai.loopmaker.core import Song
 
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-SAMPLE_FOLDER = './assets/samples'
+SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER')
+
+
 def list_files_and_folders(folder):
     folder_path = Path(folder)
     files = []
@@ -40,14 +44,27 @@ def unroll_schema(path):
     return jsonref.replace_refs(
         raw,
         base_uri=Path(path).absolute().as_uri(),
-        merge_props=True
+        merge_props=True,
+        # load_on_repr=True
     )
+
+
+def to_plain_dict(obj):
+    if isinstance(obj, dict):
+        return {k: to_plain_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [to_plain_dict(i) for i in obj]
+    elif hasattr(obj, '__dict__'):
+        return to_plain_dict(vars(obj))
+    else:
+        return obj
 
 
 song_schema = unroll_schema('./schemas/loopmaker/Song.schema.json')
 
 
 # Suprisingly it works really well with gpt-4o, cost is ~2-3 cents per song
+# FIXME song_schema is passed as str(dict), not json string
 SYSTEM_PROMPT = f'''
 You are a music composition assistant that creates structured musical pieces based on a user prompt and parameters like tempo, mood, and intensity. Your output must follow a two-step process:
 
@@ -92,12 +109,19 @@ Here is a list of samples you can use:
 ```
 {folders}
 ```
+
+---
+
+To recap, you should answer in two parts:
+1. Composition draft
+2. JSON *OBJECT* representing Song
+
+**DO NOT CONFUSE OBJECT WITH SCHEMA!!!**
 '''
+# The last line is very important
 
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-
+# TODO secure against prompt injection attacks
 def stringify_generation_prompt(prompt: GenerationPrompt) -> str:
     # TODO gpt-4o doesn't support sending in audio files through the API, but it may be possible with assistants
     s = ''
@@ -112,7 +136,7 @@ def stringify_generation_prompt(prompt: GenerationPrompt) -> str:
     return s
 
 
-def request_composition_draft(prompt: GenerationPrompt) -> str:
+def request_composition_draft(client: openai.OpenAI, prompt: GenerationPrompt) -> str:
     response = client.chat.completions.create(
         model='gpt-4o',
         messages=[
@@ -135,14 +159,19 @@ def extract_json_from_response(response: str) -> dict:
     raise ValueError('No JSON block found!')
 
 
-if __name__ == '__main__':
-    print(SYSTEM_PROMPT)
-    res = request_composition_draft(GenerationPrompt(
-        text_prompt=input('User prompt:\n'),
-        reference_composition=None,
-        reference_sound=json.loads(input('Other settings (as JSON):\n')),
-        other_settings={}
-    ))
-    print(res)
-    json_res = json.dumps(extract_json_from_response(cast(str, res)))
-    print(json_res)
+def request_song_generation(client: openai.OpenAI, prompt: GenerationPrompt) -> Song:
+    logging.debug(f'Sending request to OpenAI API, prompt={prompt}')
+    response = request_composition_draft(client, prompt)
+    logging.debug(f'Received response {response}')
+    song_dict = extract_json_from_response(response)
+    # FIXME: Validation introduces more problems right now, come back to it later
+    # try:
+    #     schm = json.loads(song_schema)
+    #     print(f'schm={json.dumps(schm)}')
+    #     print(f'inst={json.dumps(song_dict)}')
+        # jsonschema.validate(instance=song_dict, schema=schm)
+    # except jsonschema.ValidationError:
+        # raise jsonschema.ValidationError('OpenAI returned JSON which does not match song schema')
+    song = song_from_json(song_dict)
+    logging.info(f'Song generation succesful')
+    return song
