@@ -8,7 +8,7 @@ Kolorowa wizualizacja utworu, intuicyjne suwaki i możliwość „forkowania” 
 1. **Zero progu wejścia** – wpisujesz jedno zdanie i przesuwasz suwak długości (10 s – 5 min).  
 2. **Natychmiastowy efekt** – od kliknięcia **Generuj** do odsłuchu.  
 3. **Music Canvas** – waveform + mini-pianoroll pokazują, co gra i kiedy.  
-4. **Pełna kontrola, jeśli chcesz** – rozwiń panel, odkliknij instrument, zmień tempo lub dociśnij bas jednym suwakiem.  
+4. **Pełna kontrola, jeśli chcesz** – rozwiń panel, odkliknij instrument, zmień tempo lub dociśnij bas jednym.suwakiem.  
 5. **Kreatywna społeczność** – każdy utwór ma publiczny link i przycisk **Fork**; remiksuj cudze pomysły w sekundę.  
 
 ---
