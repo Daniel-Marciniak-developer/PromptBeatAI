@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import WaveformVisualizer from './WaveformVisualizer';
 import PianoRoll from './PianoRoll';
 import SegmentLabels from './SegmentLabels';
+import { FloatingMusicIcons, RotatingMusicIcons } from './MusicIcons';
 
 interface MusicCanvasProps {
   isGenerating: boolean;
@@ -37,17 +38,57 @@ const MusicCanvas: React.FC<MusicCanvasProps> = ({ isGenerating }) => {
       transition={{ duration: 0.8, delay: 0.2 }}
     >
       <div className="relative bg-glass backdrop-blur-lg border border-white/10 rounded-2xl overflow-hidden">
-        {/* BPM Badge */}
-        <motion.div 
+        {/* BPM Badge with rotating disc icon */}
+        <motion.div
           className="absolute top-4 right-4 z-20"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.5, type: "spring" }}
         >
-          <div className="bg-gradient-to-r from-accent-from to-accent-to rounded-full px-4 py-2 border border-white/20">
+          <div className="bg-gradient-to-r from-accent-from to-accent-to rounded-full px-4 py-2 border border-white/20 flex items-center gap-2">
+            <RotatingMusicIcons.Disc size={16} color="#ffffff" speed={0.5} />
             <span className="text-white font-medium text-sm">128 BPM</span>
           </div>
         </motion.div>
+
+        {/* Floating music icons around the canvas */}
+        <div className="absolute inset-0 pointer-events-none">
+          <FloatingMusicIcons.Piano
+            color="#a855f7"
+            size={14}
+            delay={0}
+            duration={4}
+            className="top-[20%] left-[10%]"
+          />
+          <FloatingMusicIcons.Guitar
+            color="#ef4444"
+            size={12}
+            delay={1}
+            duration={3.5}
+            className="top-[60%] right-[15%]"
+          />
+          <FloatingMusicIcons.Drum
+            color="#06b6d4"
+            size={16}
+            delay={2}
+            duration={4.5}
+            className="bottom-[30%] left-[20%]"
+          />
+          <FloatingMusicIcons.Mic
+            color="#f59e0b"
+            size={13}
+            delay={0.5}
+            duration={3.8}
+            className="top-[40%] right-[25%]"
+          />
+          <FloatingMusicIcons.Music
+            color="#10b981"
+            size={15}
+            delay={1.5}
+            duration={4.2}
+            className="bottom-[50%] right-[10%]"
+          />
+        </div>
 
         {/* Canvas Content */}
         <div className="relative h-80 lg:h-96 p-6">
