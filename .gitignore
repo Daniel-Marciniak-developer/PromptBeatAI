@@ -383,3 +383,31 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,pycharm,linux,windows,macos
+
+# Frontend/Node.js specific
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+
+# Environment files
+*.local
+.env
+
+# Editor files (additional to existing .vscode and .idea rules)
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
