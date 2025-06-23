@@ -8,12 +8,15 @@ interface HintSuggestionsProps {
 
 const HintSuggestions: React.FC<HintSuggestionsProps> = ({ onHintClick }) => {
   const hints = [
-    "dodaj syntezator tła",
-    "zwiększ perkusję",
-    "zwolnij tempo o 10 BPM",
-    "więcej reverb na wokalu",
-    "dodaj pad strings",
-    "cieplejszy bass"
+    "add background synth",
+    "increase drums",
+    "slow tempo by 10 BPM",
+    "more reverb on vocals",
+    "add string pads",
+    "warmer bass",
+    "brighter melody",
+    "add vinyl crackle",
+    "softer attack"
   ];
 
   return (
@@ -26,9 +29,10 @@ const HintSuggestions: React.FC<HintSuggestionsProps> = ({ onHintClick }) => {
     >
       <div className="text-center mb-6">
         <div className="flex items-center justify-center space-x-2 text-white/80">
-          <Lightbulb className="w-5 h-5" />
-          <span className="font-medium">Sugestie poprawek</span>
+          <Lightbulb className="w-5 h-5 text-accent-from" />
+          <span className="font-medium">Quick Improvements</span>
         </div>
+        <p className="text-white/50 text-sm mt-2">Click to add to your prompt</p>
       </div>
       
       <div className="flex flex-wrap justify-center gap-3">
