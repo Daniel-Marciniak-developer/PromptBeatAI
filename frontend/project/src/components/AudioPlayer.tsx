@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Download, Volume2 } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Share } from 'lucide-react';
 
 const AudioPlayer: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -16,14 +16,16 @@ const AudioPlayer: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.4 }}
     >
-      <div className="flex flex-col md:flex-row items-center justify-center space-y-6 md:space-y-0 md:space-x-8">
-        {/* Play/Pause Button */}
-        <motion.button
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="relative group"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
+      <div className="flex flex-col items-center space-y-6">
+        {/* Main Controls Row */}
+        <div className="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-8">
+          {/* Play/Pause Button */}
+          <motion.button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="relative group"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
           <div className="absolute inset-0 bg-gradient-to-r from-accent-from to-accent-to rounded-full blur-lg opacity-50 group-hover:opacity-70 transition-opacity" />
           <div className="relative w-16 h-16 bg-gradient-to-r from-accent-from to-accent-to rounded-full flex items-center justify-center border border-white/20">
             {isPlaying ? (
@@ -73,29 +75,41 @@ const AudioPlayer: React.FC = () => {
           <span className="text-sm">{duration}</span>
         </div>
 
-        {/* Volume Control */}
-        <div className="flex items-center space-x-3">
-          <Volume2 className="w-5 h-5 text-white/60" />
-          <div className="w-20 h-1 bg-white/20 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-accent-from to-accent-to rounded-full"
-              style={{ width: `${volume}%` }}
-              initial={{ width: 0 }}
-              animate={{ width: `${volume}%` }}
-              transition={{ duration: 0.3 }}
-            />
+          {/* Volume Control */}
+          <div className="flex items-center space-x-3">
+            <Volume2 className="w-5 h-5 text-white/60" />
+            <div className="w-20 h-1 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-accent-from to-accent-to rounded-full"
+                style={{ width: `${volume}%` }}
+                initial={{ width: 0 }}
+                animate={{ width: `${volume}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Download Button */}
-        <motion.button
-          className="ghost-button"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <Download className="w-5 h-5" />
-          <span className="ml-2">Download</span>
-        </motion.button>
+        {/* Action Buttons - Centered */}
+        <div className="flex items-center justify-center space-x-4">
+          <motion.button
+            className="ghost-button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Download className="w-5 h-5" />
+            <span className="ml-2">Download</span>
+          </motion.button>
+
+          <motion.button
+            className="ghost-button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Share className="w-5 h-5" />
+            <span className="ml-2">Share</span>
+          </motion.button>
+        </div>
       </div>
     </motion.div>
   );

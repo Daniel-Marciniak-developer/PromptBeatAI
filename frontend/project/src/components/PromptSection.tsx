@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Keyboard, Loader2 } from 'lucide-react';
 import LengthSlider from './LengthSlider';
+import AdvancedPanel from './AdvancedPanel';
 
 interface PromptSectionProps {
   prompt: string;
@@ -9,6 +10,10 @@ interface PromptSectionProps {
   onGenerate: () => void;
   isGenerating: boolean;
   hasGenerated: boolean;
+  showAdvanced: boolean;
+  onToggleAdvanced: () => void;
+  onClear?: () => void;
+  onRandom?: () => void;
 }
 
 const PromptSection: React.FC<PromptSectionProps> = ({
@@ -16,11 +21,36 @@ const PromptSection: React.FC<PromptSectionProps> = ({
   setPrompt,
   onGenerate,
   isGenerating,
-  hasGenerated
+  hasGenerated,
+  showAdvanced,
+  onToggleAdvanced,
+  onClear,
+  onRandom
 }) => {
+  const randomPrompts = [
+    "Chill lo-fi with warm piano and vinyl crackle",
+    "Upbeat electronic dance with heavy bass",
+    "Ambient cinematic with strings and soft pads",
+    "Jazz fusion with smooth saxophone",
+    "Retro synthwave with nostalgic melodies",
+    "Acoustic folk with gentle guitar fingerpicking",
+    "Dark trap with 808 drums and atmospheric pads",
+    "Classical piano piece with emotional depth"
+  ];
+
+  const handleRandom = () => {
+    const randomPrompt = randomPrompts[Math.floor(Math.random() * randomPrompts.length)];
+    setPrompt(randomPrompt);
+    onRandom?.();
+  };
+
+  const handleClear = () => {
+    setPrompt('');
+    onClear?.();
+  };
   return (
     <motion.section 
-      className={`transition-all duration-1000 ${hasGenerated ? 'h-auto' : 'h-[80vh]'} flex flex-col justify-center items-center`}
+      className={`transition-all duration-1000 ${hasGenerated ? 'py-8' : 'min-h-[80vh] justify-center'} flex flex-col items-center`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 1 }}
@@ -45,10 +75,10 @@ const PromptSection: React.FC<PromptSectionProps> = ({
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Napisz: Chill lo-fi z ciepłym pianinem..."
+                placeholder="Type: Chill lo-fi with warm piano..."
                 className="flex-1 bg-transparent text-white text-xl md:text-2xl lg:text-3xl font-medium placeholder-white/40 focus:outline-none caret-accent-from"
                 disabled={isGenerating}
-                onKeyPress={(e) => e.key === 'Enter' && onGenerate()}
+                onKeyDown={(e) => e.key === 'Enter' && onGenerate()}
               />
             </div>
           </div>
@@ -63,34 +93,92 @@ const PromptSection: React.FC<PromptSectionProps> = ({
           <LengthSlider />
         </motion.div>
 
-        {/* Generate button */}
-        <motion.div 
-          className="flex justify-center"
+        {/* Advanced Settings*/}
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.8 }}
+        >
+          <AdvancedPanel 
+            isOpen={showAdvanced} 
+            onToggle={onToggleAdvanced} 
+          />
+        </motion.div>
+
+        {/* Action Buttons Section */}
+        <motion.div
+          className="flex flex-col items-center space-y-4"
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.8 }}
         >
+          {/* Main Generate Button */}
           <motion.button
             onClick={onGenerate}
             disabled={!prompt.trim() || isGenerating}
             className={`generate-button ${!prompt.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            animate={isGenerating ? { boxShadow: ['0 0 20px rgba(111, 0, 255, 0.5)', '0 0 40px rgba(0, 157, 255, 0.5)', '0 0 20px rgba(111, 0, 255, 0.5)'] } : {}}
+            animate={isGenerating ? {
+              boxShadow: [
+                '0 0 20px rgba(111, 0, 255, 0.5)',
+                '0 0 40px rgba(0, 157, 255, 0.5)',
+                '0 0 20px rgba(111, 0, 255, 0.5)'
+              ]
+            } : {}}
             transition={{ repeat: isGenerating ? Infinity : 0, duration: 2 }}
           >
             {isGenerating ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin" />
-                <span>Generuję...</span>
+                <span>Generating Music...</span>
               </>
             ) : (
               <>
                 <Keyboard className="w-6 h-6" />
-                <span>🎹 Generuj</span>
+                <span>Generate Music</span>
               </>
             )}
           </motion.button>
+
+          {/* Secondary Actions */}
+          {!isGenerating && (
+            <motion.div
+              className="flex items-center space-x-3"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+            >
+              <motion.button
+                className="ghost-button text-sm"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleRandom}
+              >
+                🎲 Random
+              </motion.button>
+
+              <motion.button
+                className="ghost-button text-sm"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleClear}
+              >
+                🗑️ Clear
+              </motion.button>
+
+              {hasGenerated && (
+                <motion.button
+                  className="ghost-button text-sm"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onGenerate}
+                >
+                  🔄 Regenerate
+                </motion.button>
+              )}
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </motion.section>
