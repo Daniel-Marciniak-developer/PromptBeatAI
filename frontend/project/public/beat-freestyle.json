@@ -1,0 +1,243 @@
+{
+  "bpm": 128,
+  "beats_per_bar": 4,
+  "steps_per_beat": 4,
+  "loops_in_context": [
+    {
+      "loop": {
+        "bars": 4,
+        "gain": 1.0,
+        "mute": false,
+        "tracks": {
+          "kick": {
+            "gen": {
+              "type": "sampler",
+              "filepath": "/samples/kick.wav"
+            },
+            "hits": [
+              { "step": 0, "note": "C2", "steps": 2 },
+              { "step": 8, "note": "C2", "steps": 2 },
+              { "step": 16, "note": "C2", "steps": 2 },
+              { "step": 24, "note": "C2", "steps": 2 },
+              { "step": 32, "note": "C2", "steps": 2 },
+              { "step": 40, "note": "C2", "steps": 2 },
+              { "step": 48, "note": "C2", "steps": 2 },
+              { "step": 56, "note": "C2", "steps": 2 }
+            ],
+            "gain": 1.0,
+            "mute": false
+          },
+          "snare": {
+            "gen": {
+              "type": "sampler",
+              "filepath": "/samples/snare.wav"
+            },
+            "hits": [
+              { "step": 4, "note": "D3", "steps": 2 },
+              { "step": 12, "note": "D3", "steps": 2 },
+              { "step": 20, "note": "D3", "steps": 2 },
+              { "step": 28, "note": "D3", "steps": 2 },
+              { "step": 36, "note": "D3", "steps": 2 },
+              { "step": 44, "note": "D3", "steps": 2 },
+              { "step": 52, "note": "D3", "steps": 2 },
+              { "step": 60, "note": "D3", "steps": 2 }
+            ],
+            "gain": 0.8,
+            "mute": false
+          },
+          "hihat": {
+            "gen": {
+              "type": "sampler",
+              "filepath": "/samples/hihat.wav"
+            },
+            "hits": [
+              { "step": 2, "note": "F#4", "steps": 1 },
+              { "step": 6, "note": "F#4", "steps": 1 },
+              { "step": 10, "note": "F#4", "steps": 1 },
+              { "step": 14, "note": "F#4", "steps": 1 },
+              { "step": 18, "note": "F#4", "steps": 1 },
+              { "step": 22, "note": "F#4", "steps": 1 },
+              { "step": 26, "note": "F#4", "steps": 1 },
+              { "step": 30, "note": "F#4", "steps": 1 },
+              { "step": 34, "note": "F#4", "steps": 1 },
+              { "step": 38, "note": "F#4", "steps": 1 },
+              { "step": 42, "note": "F#4", "steps": 1 },
+              { "step": 46, "note": "F#4", "steps": 1 },
+              { "step": 50, "note": "F#4", "steps": 1 },
+              { "step": 54, "note": "F#4", "steps": 1 },
+              { "step": 58, "note": "F#4", "steps": 1 },
+              { "step": 62, "note": "F#4", "steps": 1 }
+            ],
+            "gain": 0.6,
+            "mute": false
+          },
+          "bass": {
+            "gen": {
+              "type": "synth",
+              "waveform": "sawtooth",
+              "ahdsr_envelope": {
+                "attack_ms": 10,
+                "hold_ms": 50,
+                "decay_ms": 200,
+                "sustain_level": 0.7,
+                "release_ms": 300
+              },
+              "amplitude": 0.8,
+              "sample_rate": 44100
+            },
+            "hits": [
+              { "step": 0, "note": "A1", "steps": 4 },
+              { "step": 8, "note": "A1", "steps": 4 },
+              { "step": 16, "note": "C2", "steps": 4 },
+              { "step": 24, "note": "F1", "steps": 4 },
+              { "step": 32, "note": "A1", "steps": 4 },
+              { "step": 40, "note": "A1", "steps": 4 },
+              { "step": 48, "note": "C2", "steps": 4 },
+              { "step": 56, "note": "G1", "steps": 4 }
+            ],
+            "gain": 0.9,
+            "mute": false
+          },
+          "lead": {
+            "gen": {
+              "type": "synth",
+              "waveform": "square",
+              "ahdsr_envelope": {
+                "attack_ms": 50,
+                "hold_ms": 100,
+                "decay_ms": 150,
+                "sustain_level": 0.6,
+                "release_ms": 200
+              },
+              "amplitude": 0.6,
+              "sample_rate": 44100
+            },
+            "hits": [
+              { "step": 1, "note": "A4", "steps": 3 },
+              { "step": 5, "note": "C5", "steps": 2 },
+              { "step": 9, "note": "E5", "steps": 3 },
+              { "step": 13, "note": "C5", "steps": 2 },
+              { "step": 17, "note": "A4", "steps": 3 },
+              { "step": 21, "note": "F4", "steps": 2 },
+              { "step": 25, "note": "A4", "steps": 3 },
+              { "step": 29, "note": "C5", "steps": 2 },
+              { "step": 33, "note": "E5", "steps": 3 },
+              { "step": 37, "note": "G5", "steps": 2 },
+              { "step": 41, "note": "F5", "steps": 3 },
+              { "step": 45, "note": "E5", "steps": 2 },
+              { "step": 49, "note": "C5", "steps": 3 },
+              { "step": 53, "note": "A4", "steps": 2 },
+              { "step": 57, "note": "F4", "steps": 3 },
+              { "step": 61, "note": "G4", "steps": 2 }
+            ],
+            "gain": 0.7,
+            "mute": false
+          },
+          "pad": {
+            "gen": {
+              "type": "synth",
+              "waveform": "sine",
+              "ahdsr_envelope": {
+                "attack_ms": 500,
+                "hold_ms": 200,
+                "decay_ms": 300,
+                "sustain_level": 0.8,
+                "release_ms": 800
+              },
+              "amplitude": 0.4,
+              "sample_rate": 44100
+            },
+            "hits": [
+              { "step": 0, "note": "A3", "steps": 16 },
+              { "step": 16, "note": "C4", "steps": 16 },
+              { "step": 32, "note": "F3", "steps": 16 },
+              { "step": 48, "note": "G3", "steps": 16 }
+            ],
+            "gain": 0.5,
+            "mute": false
+          }
+        }
+      },
+      "start_bar": 0,
+      "repeat_times": 2
+    },
+    {
+      "loop": {
+        "bars": 2,
+        "gain": 1.2,
+        "mute": false,
+        "tracks": {
+          "kick": {
+            "gen": {
+              "type": "sampler",
+              "filepath": "/samples/kick.wav"
+            },
+            "hits": [
+              { "step": 0, "note": "C2", "steps": 2 },
+              { "step": 4, "note": "C2", "steps": 2 },
+              { "step": 8, "note": "C2", "steps": 2 },
+              { "step": 12, "note": "C2", "steps": 2 },
+              { "step": 16, "note": "C2", "steps": 2 },
+              { "step": 20, "note": "C2", "steps": 2 },
+              { "step": 24, "note": "C2", "steps": 2 },
+              { "step": 28, "note": "C2", "steps": 2 }
+            ],
+            "gain": 1.0,
+            "mute": false
+          },
+          "snare": {
+            "gen": {
+              "type": "sampler",
+              "filepath": "/samples/snare.wav"
+            },
+            "hits": [
+              { "step": 2, "note": "D3", "steps": 1 },
+              { "step": 6, "note": "D3", "steps": 1 },
+              { "step": 10, "note": "D3", "steps": 1 },
+              { "step": 14, "note": "D3", "steps": 1 },
+              { "step": 18, "note": "D3", "steps": 1 },
+              { "step": 22, "note": "D3", "steps": 1 },
+              { "step": 26, "note": "D3", "steps": 1 },
+              { "step": 30, "note": "D3", "steps": 1 }
+            ],
+            "gain": 1.2,
+            "mute": false
+          },
+          "lead_break": {
+            "gen": {
+              "type": "synth",
+              "waveform": "triangle",
+              "ahdsr_envelope": {
+                "attack_ms": 20,
+                "hold_ms": 50,
+                "decay_ms": 100,
+                "sustain_level": 0.5,
+                "release_ms": 150
+              },
+              "amplitude": 0.8,
+              "sample_rate": 44100
+            },
+            "hits": [
+              { "step": 0, "note": "C6", "steps": 1 },
+              { "step": 2, "note": "B5", "steps": 1 },
+              { "step": 4, "note": "A5", "steps": 1 },
+              { "step": 6, "note": "G5", "steps": 1 },
+              { "step": 8, "note": "F5", "steps": 1 },
+              { "step": 10, "note": "E5", "steps": 1 },
+              { "step": 12, "note": "D5", "steps": 1 },
+              { "step": 14, "note": "C5", "steps": 1 },
+              { "step": 16, "note": "E5", "steps": 2 },
+              { "step": 20, "note": "G5", "steps": 2 },
+              { "step": 24, "note": "C6", "steps": 4 },
+              { "step": 28, "note": "A5", "steps": 4 }
+            ],
+            "gain": 0.9,
+            "mute": false
+          }
+        }
+      },
+      "start_bar": 8,
+      "repeat_times": 1
+    }
+  ]
+}
