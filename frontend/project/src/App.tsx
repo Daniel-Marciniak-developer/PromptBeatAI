@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import PromptSection from './components/PromptSection';
-import MusicCanvas from './components/MusicCanvas';
+import EnhancedMusicCanvas from './components/EnhancedMusicCanvas';
 import AdvancedPanel from './components/AdvancedPanel';
-import AudioPlayer from './components/AudioPlayer';
 import HintSuggestions from './components/HintSuggestions';
 import Sidebar from './components/Sidebar';
 import ProjectManager from './components/ProjectManager';
@@ -120,7 +119,7 @@ function App() {
             overflow: 'visible'
           }}
         >
-          <div className="max-w-4xl mx-auto px-4">
+          <div className="max-w-7xl mx-auto px-6">
             <PromptSection
               prompt={prompt}
               setPrompt={setPrompt}
@@ -141,8 +140,14 @@ function App() {
                   exit={{ opacity: 0, y: -50 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                  <MusicCanvas isGenerating={isGenerating} />
-                  <AudioPlayer />
+                  <EnhancedMusicCanvas
+                    isGenerating={isGenerating}
+                    audioSrc="/beat-freestyle.mp3"
+                    songDataSrc="/beat-freestyle.json"
+                    title="Beat for Freestyle"
+                    artist="PromptBeat AI"
+                    bpm={128}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

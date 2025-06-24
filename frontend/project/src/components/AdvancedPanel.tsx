@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Sliders, Music4, Drum, Piano } from 'lucide-react';
+import { ChevronDown, Sliders, Music4, Drum, Piano } from 'lucide-react';
 import StyleSelector from './StyleSelector';
 import InstrumentToggle from './InstrumentToggle';
 import DynamicsSlider from './DynamicsSlider';
