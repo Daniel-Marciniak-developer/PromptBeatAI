@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 from typing import cast
 
-from promptbeatai.ai.core import GenerationPrompt
+from promptbeatai.app.entities.generation_prompt import GenerationPrompt
 from promptbeatai.loopmaker.serialize import song_from_json, song_to_json
 from promptbeatai.loopmaker.core import Song
 
@@ -125,14 +125,14 @@ To recap, you should answer in two parts:
 def stringify_generation_prompt(prompt: GenerationPrompt) -> str:
     # TODO gpt-4o doesn't support sending in audio files through the API, but it may be possible with assistants
     s = ''
-    if prompt['reference_composition']:
+    if prompt.reference_composition:
         s += '**Use the following composition as your reference**:\n'
-        s += json.dumps(song_to_json(prompt['reference_composition']))
-    if prompt['other_settings']:
+        s += json.dumps(song_to_json(prompt.reference_composition))
+    if prompt.other_settings:
         s += '**Users supplied these parameters**\n'
-        s += '\n'.join(f'{k}: {v}' for k, v in prompt['other_settings'].items())
+        s += '\n'.join(f'{k}: {v}' for k, v in prompt.other_settings.items())
         s += '\n'
-    s += "**This is the user's request**:\n{prompt['text_prompt']}\n"
+    s += f"**This is the user's request**:\n{prompt.text_prompt}\n"
     return s
 
 
