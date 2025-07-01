@@ -67,9 +67,10 @@ const AtmosphereSlider: React.FC<AtmosphereSliderProps> = ({
 
         {/* Visual Thumb */}
         <motion.div
-          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-gradient-to-r from-accent-from to-accent-to rounded-full border-2 border-white shadow-lg pointer-events-none"
+          className="absolute w-5 h-5 bg-gradient-to-r from-accent-from to-accent-to rounded-full border-2 border-white shadow-lg pointer-events-none"
           style={{
             left: `calc(${value}% - 10px)`,
+            top: '-4px', // Pasek h-3 (12px), środek na 6px. Kropka 20px, środek na 10px. 6px - 10px = -4px
             zIndex: 5
           }}
           animate={{

@@ -57,9 +57,10 @@ const DynamicsSlider: React.FC<DynamicsSliderProps> = ({
 
         {/* Visual Thumb */}
         <motion.div
-          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-lg pointer-events-none"
+          className="absolute w-4 h-4 rounded-full border-2 border-white shadow-lg pointer-events-none"
           style={{
             left: `calc(${value}% - 8px)`,
+            top: '-4px', // Pasek h-2 (8px), środek na 4px. Kropka 16px, środek na 8px. 4px - 8px = -4px
             backgroundColor: color,
             zIndex: 5
           }}

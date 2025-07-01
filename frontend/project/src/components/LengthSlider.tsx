@@ -70,9 +70,10 @@ const LengthSlider: React.FC<LengthSliderProps> = ({
 
         {/* Visual Thumb */}
         <motion.div
-          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-gradient-to-r from-accent-from to-accent-to rounded-full border-2 border-white shadow-lg pointer-events-none"
+          className="absolute w-5 h-5 bg-gradient-to-r from-accent-from to-accent-to rounded-full border-2 border-white shadow-lg pointer-events-none"
           style={{
             left: `calc(${percentage}% - 10px)`,
+            top: '-6px', // Pasek h-2 (8px), środek na 4px. Kropka 20px, środek na 10px. 4px - 10px = -6px
             zIndex: 5
           }}
           animate={{
