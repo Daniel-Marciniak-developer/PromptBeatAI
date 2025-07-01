@@ -132,7 +132,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden"
+        className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -195,7 +195,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
 
         {/* History List */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-6 overflow-y-auto max-h-[75vh]">
           {filteredHistory.length === 0 ? (
             <div className="text-center py-12">
               <Clock className="w-12 h-12 text-white/20 mx-auto mb-4" />
