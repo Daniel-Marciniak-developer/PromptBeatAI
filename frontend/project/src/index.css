@@ -1,3 +1,78 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom slider styles */
+.custom-slider {
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #f093fb;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  position: relative;
+  top: 0;
+}
+
+/* Firefox */
+.custom-slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #f093fb;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.custom-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+}
+
+/* Focus states */
+.custom-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.3);
+}
+
+.custom-slider:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.3);
+}
+
+/* Reduce motion when animations are disabled */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Theme styles */
+.light-theme {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+}
+
+.dark-theme {
+  --bg-color: #000000;
+  --text-color: #ffffff;
+}
