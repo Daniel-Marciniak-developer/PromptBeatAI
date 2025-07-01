@@ -15,6 +15,11 @@ interface EnhancedMusicCanvasProps {
   title?: string;
   artist?: string;
   bpm?: number;
+  onShare?: () => void;
+  onDownload?: (format: string, quality: string) => void;
+  onAddToFavorites?: () => void;
+  isFavorite?: boolean;
+  autoPlay?: boolean;
 }
 
 const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
@@ -23,7 +28,12 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   songDataSrc = "/beat-freestyle.json",
   title = "Beat for Freestyle",
   artist = "PromptBeat AI",
-  bpm = 128
+  bpm = 128,
+  onShare,
+  onDownload,
+  onAddToFavorites,
+  isFavorite = false,
+  autoPlay = false
 }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -37,6 +47,9 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   const [showCentralPlay, setShowCentralPlay] = useState(true);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [audioPlayerRef, setAudioPlayerRef] = useState<RealAudioPlayerRef | null>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<'mp3' | 'wav' | 'flac'>('mp3');
+  const [downloadQuality, setDownloadQuality] = useState<'128' | '192' | '320' | 'lossless'>('320');
 
   const handleTimeUpdate = useCallback((time: number, dur: number) => {
     setCurrentTime(time);
@@ -56,6 +69,49 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
       audioPlayerRef.togglePlayPause();
     }
   }, [audioPlayerRef]);
+
+  const handleShare = () => {
+    if (onShare) {
+      onShare();
+    }
+  };
+
+  const handleAddToFavorites = () => {
+    if (onAddToFavorites) {
+      onAddToFavorites();
+    }
+  };
+
+  const handleDownloadClick = () => {
+    setShowDownloadModal(true);
+  };
+
+  const handleDownloadConfirm = () => {
+    if (onDownload) {
+      onDownload(downloadFormat, downloadQuality);
+    }
+
+    // Add to downloads history
+    const downloadItem = {
+      id: Date.now().toString(),
+      projectId: Date.now().toString(),
+      projectName: title,
+      fileName: `${title.replace(/\s+/g, '_')}.${downloadFormat}`,
+      format: downloadFormat,
+      quality: downloadQuality === 'lossless' ? 'Lossless' : `${downloadQuality} kbps`,
+      size: Math.floor(Math.random() * 10000000) + 5000000, // Simulate file size
+      downloadedAt: new Date(),
+      status: 'completed' as const,
+      url: audioSrc,
+      duration: Math.floor(duration)
+    };
+
+    const downloads = JSON.parse(localStorage.getItem('promptbeat-downloads') || '[]');
+    downloads.unshift(downloadItem);
+    localStorage.setItem('promptbeat-downloads', JSON.stringify(downloads.slice(0, 50))); // Keep only 50 items
+
+    setShowDownloadModal(false);
+  };
 
   // Update volume when audioPlayerRef changes
   const updateVolume = useCallback((newVolume: number) => {
@@ -173,8 +229,15 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   useEffect(() => {
     if (audioPlayerRef) {
       audioPlayerRef.setVolume(volume);
+
+      // Auto-play if enabled
+      if (autoPlay && !isGenerating) {
+        setTimeout(() => {
+          audioPlayerRef.togglePlayPause();
+        }, 500); // Small delay to ensure audio is loaded
+      }
     }
-  }, [audioPlayerRef]); // Remove volume dependency to avoid loops
+  }, [audioPlayerRef, autoPlay, isGenerating]); // Remove volume dependency to avoid loops
 
   const visualizerTypes = [
     { type: 'pianoRoll' as const, icon: Music2, label: 'Piano Roll' },
@@ -223,6 +286,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
             >
               {/* Share Button */}
               <motion.button
+                onClick={handleShare}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg border border-green-500/30 transition-all text-sm"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -233,8 +297,26 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
                 Share
               </motion.button>
 
+              {/* Add to Favorites Button */}
+              <motion.button
+                onClick={handleAddToFavorites}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-sm ${
+                  isFavorite
+                    ? 'bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border-pink-500/30'
+                    : 'bg-white/10 hover:bg-white/20 text-white/60 border-white/20'
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <svg className="w-3.5 h-3.5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                {isFavorite ? 'Favorited' : 'Add to Favorites'}
+              </motion.button>
+
               {/* Download Button */}
               <motion.button
+                onClick={handleDownloadClick}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg border border-blue-500/30 transition-all text-sm"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -496,6 +578,136 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
           />
         </div>
       </div>
+
+      {/* Download Modal */}
+      <AnimatePresence>
+        {showDownloadModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowDownloadModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Download Audio</h3>
+                      <p className="text-white/60 text-sm">{title}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDownloadModal(false)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Format Selection */}
+                  <div>
+                    <label className="block text-white/80 font-medium mb-2">Format</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['mp3', 'wav', 'flac'] as const).map((format) => (
+                        <button
+                          key={format}
+                          onClick={() => setDownloadFormat(format)}
+                          className={`p-3 rounded-lg border transition-colors text-sm font-medium ${
+                            downloadFormat === format
+                              ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                              : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          {format.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quality Selection */}
+                  <div>
+                    <label className="block text-white/80 font-medium mb-2">Quality</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {downloadFormat === 'flac' ? (
+                        <button
+                          onClick={() => setDownloadQuality('lossless')}
+                          className="col-span-2 p-3 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-sm font-medium"
+                        >
+                          Lossless
+                        </button>
+                      ) : (
+                        (['128', '192', '320'] as const).map((quality) => (
+                          <button
+                            key={quality}
+                            onClick={() => setDownloadQuality(quality)}
+                            className={`p-3 rounded-lg border transition-colors text-sm font-medium ${
+                              downloadQuality === quality
+                                ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                            }`}
+                          >
+                            {quality} kbps
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* File Info */}
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                    <div className="text-xs text-white/60 space-y-1">
+                      <div className="flex justify-between">
+                        <span>File name:</span>
+                        <span className="text-white/80">{title.replace(/\s+/g, '_')}.{downloadFormat}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Estimated size:</span>
+                        <span className="text-white/80">
+                          {downloadFormat === 'flac' ? '~25 MB' :
+                           downloadQuality === '320' ? '~8 MB' :
+                           downloadQuality === '192' ? '~5 MB' : '~3 MB'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => setShowDownloadModal(false)}
+                      className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDownloadConfirm}
+                      className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                    >
+                      Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 };
