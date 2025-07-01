@@ -1,1 +1,6 @@
 pydub==0.25.1
+jsonref==1.1.0
+jsonschema==4.23.0
+openai==1.54.4
+numpy==1.26.4
+scipy==1.14.1

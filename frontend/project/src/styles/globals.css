@@ -16,6 +16,7 @@
     @apply bg-black text-white font-sans;
     font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     line-height: 1.5;
+    overflow-x: hidden;
   }
 
   /* Custom scrollbar */
@@ -59,7 +60,7 @@
   }
 
   .generate-button {
-    @apply relative px-8 py-4 bg-gradient-to-r from-accent-from to-accent-to rounded-2xl text-white font-semibold text-lg flex items-center space-x-3 shadow-2xl transition-all duration-300 hover:shadow-accent-from/25;
+    @apply relative px-10 py-5 bg-gradient-to-r from-accent-from to-accent-to rounded-2xl text-white font-bold text-xl flex items-center space-x-3 shadow-2xl transition-all duration-300 hover:shadow-accent-from/25 hover:scale-105;
   }
 
   .generate-button::before {
@@ -92,6 +93,254 @@
 
   .hint-chip > * {
     @apply relative z-10;
+  }
+
+  .action-button {
+    @apply relative px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white font-medium transition-all duration-300 hover:border-accent-from/50 hover:bg-white/20 hover:scale-105 flex items-center space-x-2;
+  }
+
+  .action-button::before {
+    content: '';
+    @apply absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  }
+
+  .action-button:hover::before {
+    @apply opacity-10;
+  }
+
+  .action-button > * {
+    @apply relative z-10;
+  }
+
+  /* Length Slider Specific Styles */
+  .length-slider-container {
+    isolation: isolate; /* Create new stacking context */
+  }
+
+  .length-slider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .length-slider-input::-webkit-slider-track {
+    background: transparent;
+    border: none;
+  }
+
+  .length-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .length-slider-input::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  .length-slider-input::-moz-range-thumb {
+    background: transparent;
+    border: none;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  .length-slider-input:focus {
+    outline: none;
+  }
+
+  /* Dynamics Slider Specific Styles */
+  .dynamics-slider-container {
+    isolation: isolate;
+  }
+
+  .dynamics-slider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .dynamics-slider-input::-webkit-slider-track {
+    background: transparent;
+    border: none;
+  }
+
+  .dynamics-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .dynamics-slider-input::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  .dynamics-slider-input::-moz-range-thumb {
+    background: transparent;
+    border: none;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .dynamics-slider-input:focus {
+    outline: none;
+  }
+
+  /* Atmosphere Slider Specific Styles */
+  .atmosphere-slider-container {
+    isolation: isolate;
+  }
+
+  .atmosphere-slider-input {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .atmosphere-slider-input::-webkit-slider-track {
+    background: transparent;
+    border: none;
+  }
+
+  .atmosphere-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .atmosphere-slider-input::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  .atmosphere-slider-input::-moz-range-thumb {
+    background: transparent;
+    border: none;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  .atmosphere-slider-input:focus {
+    outline: none;
+  }
+
+  /* Tempo Input Specific Styles */
+  .tempo-input-container {
+    isolation: isolate;
+  }
+
+  .tempo-input-container input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .tempo-input-container input[type="range"]::-webkit-slider-track {
+    background: transparent;
+    border: none;
+  }
+
+  .tempo-input-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+
+  .tempo-input-container input[type="range"]::-moz-range-track {
+    background: transparent;
+    border: none;
+  }
+
+  .tempo-input-container input[type="range"]::-moz-range-thumb {
+    background: transparent;
+    border: none;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  .tempo-input-container input[type="range"]:focus {
+    outline: none;
+  }
+
+  /* Volume Slider Specific Styles */
+  .volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid #8b5cf6;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s ease;
+  }
+
+  .volume-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+  }
+
+  .volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid #8b5cf6;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s ease;
+  }
+
+  .volume-slider::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+  }
+
+  .volume-slider::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .volume-slider:focus {
+    outline: none;
   }
 }
 
@@ -166,10 +415,14 @@
 /* Responsive design improvements */
 @media (max-width: 768px) {
   .generate-button {
-    @apply px-6 py-3 text-base;
+    @apply px-8 py-4 text-lg;
   }
-  
+
   .ghost-button {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .action-button {
     @apply px-4 py-2 text-sm;
   }
 }
@@ -177,13 +430,79 @@
 /* Focus states for accessibility */
 .ghost-button:focus,
 .generate-button:focus,
-.hint-chip:focus {
+.hint-chip:focus,
+.action-button:focus {
   @apply outline-none ring-2 ring-accent-from/50 ring-offset-2 ring-offset-black;
 }
 
 /* Smooth transitions for all interactive elements */
-button, input, textarea {
+button, input:not([type="range"]), textarea {
   @apply transition-all duration-200;
+}
+
+/* Global range input reset to prevent conflicts */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: transparent;
+  border: none;
+  height: 100%;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+  background: transparent;
+  border: none;
+  height: 100%;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+/* Prevent layout shifts and conflicts */
+.motion-div {
+  will-change: transform;
+}
+
+/* Ensure proper stacking context for sliders */
+.slider-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevent border box issues */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Fix for potential layout issues */
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
 }
 
 /* High contrast mode support */

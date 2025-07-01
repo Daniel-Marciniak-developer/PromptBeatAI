@@ -1,31 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
 interface DynamicsSliderProps {
   label: string;
   color: string;
   defaultValue: number;
+  onChange?: (value: number) => void;
 }
 
-const DynamicsSlider: React.FC<DynamicsSliderProps> = ({ 
-  label, 
-  color, 
-  defaultValue 
+const DynamicsSlider: React.FC<DynamicsSliderProps> = ({
+  label,
+  color,
+  defaultValue,
+  onChange
 }) => {
   const [value, setValue] = useState(defaultValue);
 
+  const handleChange = useCallback((newValue: number) => {
+    setValue(newValue);
+    onChange?.(newValue);
+  }, [onChange]);
+
   return (
-    <div className="space-y-2">
+    <div className="dynamics-slider-container space-y-2">
       <div className="flex justify-between items-center">
         <span className="text-white/80 font-medium">{label}</span>
         <span className="text-white/60 text-sm">{value}%</span>
       </div>
-      
+
       <div className="relative">
+        {/* Track Background */}
         <div className="h-2 bg-white/10 rounded-full overflow-hidden">
           <motion.div
             className="h-full rounded-full"
-            style={{ 
+            style={{
               backgroundColor: color,
               width: `${value}%`,
               boxShadow: `0 0 8px ${color}50`
@@ -35,33 +43,32 @@ const DynamicsSlider: React.FC<DynamicsSliderProps> = ({
             transition={{ duration: 0.3 }}
           />
         </div>
-        
-        <motion.div
-          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-lg cursor-pointer"
-          style={{ 
-            left: `calc(${value}% - 8px)`,
-            backgroundColor: color
-          }}
-          whileHover={{ scale: 1.2 }}
-          whileDrag={{ scale: 1.3 }}
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          onDrag={(event, info) => {
-            const rect = event.currentTarget.parentElement?.getBoundingClientRect();
-            if (rect) {
-              const percentage = Math.max(0, Math.min(100, (info.point.x / rect.width) * 100));
-              setValue(Math.round(percentage));
-            }
-          }}
-        />
-        
+
+        {/* Range Input */}
         <input
           type="range"
           min="0"
           max="100"
           value={value}
-          onChange={(e) => setValue(Number(e.target.value))}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          onChange={(e) => handleChange(Number(e.target.value))}
+          className="dynamics-slider-input absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          style={{ zIndex: 10 }}
+        />
+
+        {/* Visual Thumb */}
+        <motion.div
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-lg pointer-events-none"
+          style={{
+            left: `calc(${value}% - 8px)`,
+            backgroundColor: color,
+            zIndex: 5
+          }}
+          animate={{
+            left: `calc(${value}% - 8px)`,
+            scale: 1
+          }}
+          whileHover={{ scale: 1.2 }}
+          transition={{ duration: 0.3 }}
         />
       </div>
     </div>

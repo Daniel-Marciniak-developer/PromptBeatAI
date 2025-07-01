@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Sliders, Music4, Drum, Piano } from 'lucide-react';
+import { ChevronDown, Sliders, Music4, Drum, Piano } from 'lucide-react';
 import StyleSelector from './StyleSelector';
 import InstrumentToggle from './InstrumentToggle';
 import DynamicsSlider from './DynamicsSlider';
 import AtmosphereSlider from './AtmosphereSlider';
+import TempoInput from './TempoInput';
 
 interface AdvancedPanelProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle }) => {
       >
         <div className="flex items-center space-x-3">
           <Sliders className="w-6 h-6 text-accent-from" />
-          <h2 className="text-xl font-semibold text-white">Ustawienia zaawansowane</h2>
+          <h2 className="text-xl font-semibold text-white">Advanced Settings</h2>
         </div>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
@@ -53,39 +54,23 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle }) => {
             <div className="p-6 space-y-8">
               {/* Style Selector */}
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">Styl muzyczny</h3>
+                <h3 className="text-lg font-medium text-white mb-4">Music Style</h3>
                 <StyleSelector />
               </div>
 
               {/* Tempo Control */}
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">Tempo</h3>
-                <div className="flex items-center space-x-4">
-                  <motion.button
-                    onClick={() => setTempo(Math.max(60, tempo - 10))}
-                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center text-white transition-colors"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    -
-                  </motion.button>
-                  <div className="bg-white/10 rounded-lg px-4 py-2 min-w-[80px] text-center">
-                    <span className="text-white font-medium">{tempo} BPM</span>
-                  </div>
-                  <motion.button
-                    onClick={() => setTempo(Math.min(200, tempo + 10))}
-                    className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center text-white transition-colors"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    +
-                  </motion.button>
-                </div>
+                <TempoInput
+                  defaultValue={tempo}
+                  onChange={setTempo}
+                  min={60}
+                  max={200}
+                />
               </div>
 
               {/* Instrument Toggles */}
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">Instrumenty</h3>
+                <h3 className="text-lg font-medium text-white mb-4">Instruments</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <InstrumentToggle icon={Piano} label="Piano" defaultChecked />
                   <InstrumentToggle icon={Music4} label="Bass" defaultChecked />
@@ -98,7 +83,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle }) => {
 
               {/* Dynamics Sliders */}
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">Dynamika</h3>
+                <h3 className="text-lg font-medium text-white mb-4">Dynamics</h3>
                 <div className="space-y-4">
                   <DynamicsSlider label="Bass" color="#ff6b6b" defaultValue={70} />
                   <DynamicsSlider label="Drums" color="#4ecdc4" defaultValue={85} />
@@ -108,29 +93,10 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle }) => {
 
               {/* Atmosphere Sliders */}
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">Atmosfera</h3>
+                <h3 className="text-lg font-medium text-white mb-4">Atmosphere</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <AtmosphereSlider label="Warmth" defaultValue={60} />
                   <AtmosphereSlider label="Brightness" defaultValue={40} />
-                </div>
-              </div>
-
-              {/* Mini Prompt */}
-              <div>
-                <h3 className="text-lg font-medium text-white mb-4">Doprecyzuj</h3>
-                <div className="space-y-4">
-                  <textarea
-                    className="w-full bg-white/10 border border-white/20 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-accent-from/50 resize-none"
-                    rows={3}
-                    placeholder="Dodaj więcej szczegółów do swojego prompta..."
-                  />
-                  <motion.button
-                    className="ghost-button"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    🔁 Aktualizuj
-                  </motion.button>
                 </div>
               </div>
             </div>
@@ -141,4 +107,4 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle }) => {
   );
 };
 
-export default AdvancedPanel;
+export default AdvancedPanel; 
