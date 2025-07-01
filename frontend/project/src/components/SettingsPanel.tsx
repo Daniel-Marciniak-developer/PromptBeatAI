@@ -1,27 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  X, 
-  Settings, 
-  Volume2, 
-  Monitor, 
-  Palette, 
+import SelectDropdown from './SelectDropdown';
+import { useSettings, SettingsData } from '../contexts/SettingsContext';
+import {
+  X,
+  Settings,
+  Volume2,
+  Monitor,
+  Palette,
   Download,
   Trash2,
   RefreshCw,
   Save
 } from 'lucide-react';
-
-interface SettingsData {
-  theme: 'dark' | 'light' | 'auto';
-  volume: number;
-  autoSave: boolean;
-  downloadFormat: 'mp3' | 'wav' | 'flac';
-  defaultDuration: number;
-  enableAnimations: boolean;
-  showHints: boolean;
-  autoPlay: boolean;
-}
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -29,52 +20,24 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const [settings, setSettings] = useState<SettingsData>({
-    theme: 'dark',
-    volume: 80,
-    autoSave: true,
-    downloadFormat: 'mp3',
-    defaultDuration: 30,
-    enableAnimations: true,
-    showHints: true,
-    autoPlay: false
-  });
-
+  const { settings, updateSetting, saveSettings, resetSettings } = useSettings();
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('promptbeat-settings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
-  }, []);
-
-  const updateSetting = <K extends keyof SettingsData>(
-    key: K, 
+  const handleUpdateSetting = <K extends keyof SettingsData>(
+    key: K,
     value: SettingsData[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    updateSetting(key, value);
     setHasChanges(true);
   };
 
-  const saveSettings = () => {
-    localStorage.setItem('promptbeat-settings', JSON.stringify(settings));
+  const handleSaveSettings = () => {
+    saveSettings();
     setHasChanges(false);
   };
 
-  const resetSettings = () => {
-    const defaultSettings: SettingsData = {
-      theme: 'dark',
-      volume: 80,
-      autoSave: true,
-      downloadFormat: 'mp3',
-      defaultDuration: 30,
-      enableAnimations: true,
-      showHints: true,
-      autoPlay: false
-    };
-    setSettings(defaultSettings);
+  const handleResetSettings = () => {
+    resetSettings();
     setHasChanges(true);
   };
 
@@ -99,7 +62,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+        className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -124,7 +87,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Settings Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
+        <div className="p-6 overflow-y-auto max-h-[75vh] space-y-6">
+
           {/* Audio Settings */}
           <div>
             <h3 className="text-white font-medium mb-4 flex items-center gap-2">
@@ -141,22 +105,25 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                   min="0"
                   max="100"
                   value={settings.volume}
-                  onChange={(e) => updateSetting('volume', parseInt(e.target.value))}
-                  className="w-full accent-accent-from"
+                  onChange={(e) => handleUpdateSetting('volume', parseInt(e.target.value))}
+                  className="w-full custom-slider"
+                  style={{
+                    background: `linear-gradient(to right, #f093fb 0%, #f093fb ${settings.volume}%, rgba(255,255,255,0.2) ${settings.volume}%, rgba(255,255,255,0.2) 100%)`
+                  }}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-white/80 text-sm mb-2">Download Format</label>
-                <select
+                <SelectDropdown
+                  options={[
+                    { value: 'mp3', label: 'MP3 (Compressed)' },
+                    { value: 'wav', label: 'WAV (Uncompressed)' },
+                    { value: 'flac', label: 'FLAC (Lossless)' }
+                  ]}
                   value={settings.downloadFormat}
-                  onChange={(e) => updateSetting('downloadFormat', e.target.value as any)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-from/50"
-                >
-                  <option value="mp3">MP3 (Compressed)</option>
-                  <option value="wav">WAV (Uncompressed)</option>
-                  <option value="flac">FLAC (Lossless)</option>
-                </select>
+                  onChange={(value) => handleUpdateSetting('downloadFormat', value as any)}
+                />
               </div>
 
               <div>
@@ -169,15 +136,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                   max="120"
                   step="5"
                   value={settings.defaultDuration}
-                  onChange={(e) => updateSetting('defaultDuration', parseInt(e.target.value))}
-                  className="w-full accent-accent-from"
+                  onChange={(e) => handleUpdateSetting('defaultDuration', parseInt(e.target.value))}
+                  className="w-full custom-slider"
+                  style={{
+                    background: `linear-gradient(to right, #4ecdc4 0%, #4ecdc4 ${((settings.defaultDuration - 10) / (120 - 10)) * 100}%, rgba(255,255,255,0.2) ${((settings.defaultDuration - 10) / (120 - 10)) * 100}%, rgba(255,255,255,0.2) 100%)`
+                  }}
                 />
               </div>
 
               <div className="flex items-center justify-between">
                 <span className="text-white/80 text-sm">Auto-play generated music</span>
                 <button
-                  onClick={() => updateSetting('autoPlay', !settings.autoPlay)}
+                  onClick={() => handleUpdateSetting('autoPlay', !settings.autoPlay)}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
                     settings.autoPlay ? 'bg-accent-from' : 'bg-white/20'
                   }`}
@@ -199,39 +169,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               Interface Settings
             </h3>
             <div className="space-y-4">
-              <div>
-                <label className="block text-white/80 text-sm mb-2">Theme</label>
-                <select
-                  value={settings.theme}
-                  onChange={(e) => updateSetting('theme', e.target.value as any)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent-from/50"
-                >
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                  <option value="auto">Auto (System)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-white/80 text-sm">Enable animations</span>
-                <button
-                  onClick={() => updateSetting('enableAnimations', !settings.enableAnimations)}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                    settings.enableAnimations ? 'bg-accent-from' : 'bg-white/20'
-                  }`}
-                >
-                  <div
-                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                      settings.enableAnimations ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
               <div className="flex items-center justify-between">
                 <span className="text-white/80 text-sm">Show hint suggestions</span>
                 <button
-                  onClick={() => updateSetting('showHints', !settings.showHints)}
+                  onClick={() => handleUpdateSetting('showHints', !settings.showHints)}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
                     settings.showHints ? 'bg-accent-from' : 'bg-white/20'
                   }`}
@@ -256,7 +197,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center justify-between">
                 <span className="text-white/80 text-sm">Auto-save projects</span>
                 <button
-                  onClick={() => updateSetting('autoSave', !settings.autoSave)}
+                  onClick={() => handleUpdateSetting('autoSave', !settings.autoSave)}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
                     settings.autoSave ? 'bg-accent-from' : 'bg-white/20'
                   }`}
@@ -289,7 +230,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         <div className="p-6 border-t border-white/10">
           <div className="flex justify-between items-center">
             <button
-              onClick={resetSettings}
+              onClick={handleResetSettings}
               className="flex items-center gap-2 text-white/60 hover:text-white px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
@@ -305,7 +246,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               </button>
               <button
                 onClick={() => {
-                  saveSettings();
+                  handleSaveSettings();
                   onClose();
                 }}
                 disabled={!hasChanges}
