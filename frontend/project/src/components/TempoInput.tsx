@@ -179,7 +179,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
           <div className="h-2 bg-white/10 rounded-full overflow-hidden">
             <motion.div
               className="h-full rounded-full"
-              style={{ 
+              style={{
                 width: `${((tempo - min) / (max - min)) * 100}%`,
                 backgroundColor: getTempoColor(tempo)
               }}
@@ -188,7 +188,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
           </div>
-          
+
           {/* Slider input */}
           <input
             type="range"
@@ -202,6 +202,23 @@ const TempoInput: React.FC<TempoInputProps> = ({
               setInputValue(newTempo.toString());
             }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+
+          {/* Visual Thumb */}
+          <motion.div
+            className="absolute w-4 h-4 rounded-full border-2 border-white shadow-lg pointer-events-none"
+            style={{
+              left: `calc(${((tempo - min) / (max - min)) * 100}% - 8px)`,
+              top: '-4px', // Pasek h-2 (8px), środek na 4px. Kropka 16px, środek na 8px. 4px - 8px = -4px
+              backgroundColor: getTempoColor(tempo),
+              zIndex: 5
+            }}
+            animate={{
+              left: `calc(${((tempo - min) / (max - min)) * 100}% - 8px)`,
+              scale: 1
+            }}
+            whileHover={{ scale: 1.2 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         </div>
 
