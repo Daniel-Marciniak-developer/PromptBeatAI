@@ -1,23 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, 
-  History, 
-  Settings, 
-  Music, 
-  Headphones, 
-  Download, 
-  Share2,
+import {
+  Plus,
+  History,
+  Settings,
+  Music,
+  Headphones,
   Heart,
-  Folder,
-  Search
+  Folder
 } from 'lucide-react';
 
 interface SidebarProps {
   onNewProject?: () => void;
   onOpenHistory?: () => void;
   onOpenSettings?: () => void;
-  onOpenProjects?: () => void;
+  onOpenFavorites?: () => void;
   onSidebarStateChange?: (isExpanded: boolean) => void;
 }
 
@@ -25,7 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onNewProject,
   onOpenHistory,
   onOpenSettings,
-  onOpenProjects,
+  onOpenFavorites,
   onSidebarStateChange
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -38,11 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { icon: Plus, label: 'New Project', action: onNewProject, color: '#ff6b6b' },
     { icon: History, label: 'History', action: onOpenHistory, color: '#4ecdc4' },
-    { icon: Folder, label: 'Projects', action: onOpenProjects, color: '#45b7d1' },
-    { icon: Heart, label: 'Favorites', action: () => {}, color: '#f093fb' },
-    { icon: Search, label: 'Search', action: () => {}, color: '#feca57' },
-    { icon: Download, label: 'Downloads', action: () => {}, color: '#48dbfb' },
-    { icon: Share2, label: 'Share', action: () => {}, color: '#ff9ff3' },
+    { icon: Heart, label: 'Favorites', action: onOpenFavorites, color: '#f093fb' },
     { icon: Settings, label: 'Settings', action: onOpenSettings, color: '#54a0ff' },
   ];
 
