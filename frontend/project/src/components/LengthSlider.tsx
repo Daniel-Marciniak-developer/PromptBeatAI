@@ -16,7 +16,6 @@ const LengthSlider: React.FC<LengthSliderProps> = ({
   max = 300
 }) => {
   const [length, setLength] = useState(defaultValue);
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
