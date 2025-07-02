@@ -28,8 +28,8 @@ def generate_and_store_song(client: openai.Client, prompt: GenerationPrompt, son
 @router.post('/generate')
 async def generate_song(prompt: GenerationPrompt, request: Request, background_tasks: BackgroundTasks):
     logging.info('Song generation started')
-    if os.getenv('DEBUG', 0) == 1:
-        return {'id': 0}
+    if os.getenv('DEBUG', 0) == '1':
+        return {'id': '0'}
     song_id = str(uuid.uuid4())
     background_tasks.add_tasks(generate_and_store_song, openai_client, prompt, song_id)
     return {'id': song_id}
