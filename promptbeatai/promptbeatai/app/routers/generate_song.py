@@ -10,12 +10,10 @@ from promptbeatai.loopmaker.serialize import song_to_json
 
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION', None)
-OPENAI_PROJECT = os.getenv('OPENAI_PROJECT', None)
 
 router = APIRouter()
 
-openai_client = openai.Client(OPENAI_API_KEY, organization=OPENAI_ORGANIZATION, project=OPENAI_PROJECT)
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 
 song_store = {}
