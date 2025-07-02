@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-from .routers import generate_song
+from .routers.generate_song import router as generate_song_router
 
 
 app = FastAPI(
@@ -28,4 +28,4 @@ app.add_middleware(
     allow_headers=['*']
 )
 
-app.include_router(generate_song)
+app.include_router(generate_song_router)
