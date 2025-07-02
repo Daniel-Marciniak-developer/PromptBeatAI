@@ -9,6 +9,9 @@ class GenerationPrompt(BaseModel):
     other_settings: dict[str, Any]
     reference_composition: Optional[Song] = None
 
+    class Config:
+        arbitrary_types_allowed = True
+
     @field_validator('reference_composition', mode='before')
     @classmethod
     def parse_reference_composition(cls, v):
