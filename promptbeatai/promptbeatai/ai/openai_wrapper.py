@@ -13,7 +13,7 @@ from promptbeatai.loopmaker.serialize import song_from_json, song_to_json
 from promptbeatai.loopmaker.core import Song
 
 
-SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER')
+SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER', './')
 
 
 def list_files_and_folders(folder):
