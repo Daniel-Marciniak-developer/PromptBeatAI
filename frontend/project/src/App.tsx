@@ -3,7 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import Header from './components/Header';
 import PromptSection from './components/PromptSection';
-import EnhancedMusicCanvas from './components/EnhancedMusicCanvas';
+import { ApiMusicCanvas } from './components/ApiMusicCanvas';
+import { ApiStatusMonitor } from './components/ApiStatusMonitor';
+import { generateAndWaitForSong, GenerationPrompt } from './services/api';
+import { Song } from './types/LoopmakerTypes';
 
 import HintSuggestions from './components/HintSuggestions';
 import Sidebar from './components/Sidebar';
@@ -25,6 +28,11 @@ const AppContent: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+
+  // API Integration
+  const [generatedSong, setGeneratedSong] = useState<Song | null>(null);
+  const [apiStatus, setApiStatus] = useState<'idle' | 'generating' | 'pending' | 'complete' | 'error'>('idle');
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Panel states
 
@@ -73,30 +81,56 @@ const AppContent: React.FC = () => {
 
     setIsGenerating(true);
     setShowHints(false);
+    setApiError(null);
+    setApiStatus('generating');
 
-    // Simulate AI generation
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    try {
+      // Przygotuj prompt dla API
+      const generationPrompt: GenerationPrompt = {
+        text_prompt: prompt,
+        other_settings: {
+          bpm: settings.defaultBpm || 128,
+          style: settings.defaultStyle || "Lo-fi",
+          duration: settings.defaultDuration || 30
+        }
+      };
 
-    setIsGenerating(false);
-    setHasGenerated(true);
-    setShowAdvanced(true);
-    setShowHints(true);
+      // Wywołaj API z progress callback
+      const song = await generateAndWaitForSong(generationPrompt, (status) => {
+        setApiStatus(status);
+      });
 
-    // Create new project
-    const newProject = {
-      id: Date.now().toString(),
-      name: `Generated Track ${Date.now()}`,
-      prompt: prompt,
-      audioUrl: "/beat-freestyle.mp3",
-      createdAt: new Date(),
-      duration: settings.defaultDuration, // Use setting
-      style: "Lo-fi", // Default style, should be taken from settings
-      bpm: 128,
-      isFavorite: false
-    };
+      // Zapisz wygenerowaną piosenkę
+      setGeneratedSong(song);
+      setApiStatus('complete');
+      setHasGenerated(true);
+      setShowAdvanced(true);
+      setShowHints(true);
 
-    // Set current project for sharing
-    setCurrentProject(newProject);
+      // Create new project z wygenerowanymi danymi
+      const newProject = {
+        id: Date.now().toString(),
+        name: `Generated Track ${Date.now()}`,
+        prompt: prompt,
+        audioUrl: "/beat-freestyle.mp3", // Placeholder - na razie używamy istniejący plik
+        createdAt: new Date(),
+        duration: settings.defaultDuration,
+        style: settings.defaultStyle || "AI Generated",
+        bpm: song.bpm,
+        isFavorite: false,
+        songData: song // Dodajemy wygenerowane dane piosenki
+      };
+
+      // Set current project for sharing
+      setCurrentProject(newProject);
+
+    } catch (error) {
+      console.error('Error generating song:', error);
+      setApiError(error instanceof Error ? error.message : 'Failed to generate song');
+      setApiStatus('error');
+    } finally {
+      setIsGenerating(false);
+    }
 
     // Auto-save project if enabled
     if (settings.autoSave) {
@@ -251,6 +285,9 @@ const AppContent: React.FC = () => {
         intensity={hasGenerated ? 'high' : 'medium'}
       />
 
+      {/* API Status Monitor */}
+      <ApiStatusMonitor />
+
       <div className="relative z-10">
         {/* Header - always visible but logo hidden when sidebar expanded */}
         <div
@@ -292,13 +329,13 @@ const AppContent: React.FC = () => {
                   exit={{ opacity: 0, y: -50 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                  <EnhancedMusicCanvas
+                  <ApiMusicCanvas
+                    song={generatedSong}
                     isGenerating={isGenerating}
-                    audioSrc="/beat-freestyle.mp3"
-                    songDataSrc="/beat-freestyle.json"
-                    title="Beat for Freestyle"
+                    apiStatus={apiStatus}
+                    apiError={apiError}
+                    title={generatedSong ? `AI Generated - ${prompt.slice(0, 30)}...` : "AI Generated Track"}
                     artist="PromptBeat AI"
-                    bpm={128}
                     onShare={handleOpenShare}
                     onDownload={(format, quality) => {
                       // Use format from settings if not specified
@@ -308,7 +345,7 @@ const AppContent: React.FC = () => {
                       const audioSrc = "/beat-freestyle.mp3";
                       const link = document.createElement('a');
                       link.href = audioSrc;
-                      link.download = `beat-freestyle-${quality}.${downloadFormat.toLowerCase()}`;
+                      link.download = `ai-generated-${quality}.${downloadFormat.toLowerCase()}`;
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
@@ -316,7 +353,7 @@ const AppContent: React.FC = () => {
                       // Save to downloads history
                       const downloadItem = {
                         id: Date.now().toString(),
-                        name: "Beat for Freestyle",
+                        name: generatedSong ? `AI Generated - ${prompt.slice(0, 20)}...` : "AI Generated Track",
                         format: downloadFormat,
                         quality: quality,
                         downloadedAt: new Date(),
