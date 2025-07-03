@@ -13,10 +13,13 @@ from promptbeatai.loopmaker.serialize import song_from_json, song_to_json
 from promptbeatai.loopmaker.core import Song
 
 
-SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER', './')
+SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER', None)
 
 
 def list_files_and_folders(folder):
+    if SAMPLE_FOLDER is None:
+        logging.warning('Sample folder not set!')
+        return '', ''
     folder_path = Path(folder)
     files = []
     folders = []
@@ -127,7 +130,8 @@ def stringify_generation_prompt(prompt: GenerationPrompt) -> str:
     s = ''
     if prompt.reference_composition:
         s += '**Use the following composition as your reference**:\n'
-        s += json.dumps(song_to_json(prompt.reference_composition))
+        s += json.dumps(prompt.reference_composition)
+        s += '\n'
     if prompt.other_settings:
         s += '**Users supplied these parameters**\n'
         s += '\n'.join(f'{k}: {v}' for k, v in prompt.other_settings.items())
@@ -143,7 +147,8 @@ def request_composition_draft(client: openai.OpenAI, prompt: GenerationPrompt) -
             {'role': 'system', 'content': SYSTEM_PROMPT},
             {'role': 'user', 'content': stringify_generation_prompt(prompt)}
         ],
-        temperature=0.9
+        temperature=0.9,
+        max_completion_tokens=16384
     )
     s = response.choices[0].message.content
     if isinstance(s, str):
