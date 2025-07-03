@@ -31,7 +31,7 @@ async def generate_song(prompt: GenerationPrompt, request: Request, background_t
     if os.getenv('DEBUG', 0) == '1':
         return {'id': '0'}
     song_id = str(uuid.uuid4())
-    background_tasks.add_tasks(generate_and_store_song, openai_client, prompt, song_id)
+    background_tasks.add_task(generate_and_store_song, openai_client, prompt, song_id)
     return {'id': song_id}
 
 
@@ -217,7 +217,7 @@ async def get_song(song_id: str):
                 "repeat_times": 0
                 }
             ]
-            }
+        }
     if song_id not in song_store:
         raise HTTPException(status_code=404, detail='Song not found')
     song = song_store[song_id]
