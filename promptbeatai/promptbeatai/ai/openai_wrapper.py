@@ -165,7 +165,7 @@ def extract_json_from_response(response: str) -> dict:
 
 
 def request_song_generation(client: openai.OpenAI, prompt: GenerationPrompt) -> Song:
-    logging.debug(f'Sending request to OpenAI API, prompt={prompt}')
+    logging.info(f'Sending request to OpenAI API')
     response = request_composition_draft(client, prompt)
     logging.debug(f'Received response {response}')
     song_dict = extract_json_from_response(response)
