@@ -1,8 +1,12 @@
+import os
 from pathlib import Path
 from promptbeatai.loopmaker.core import Hit, Loop, LoopInContext, Note, Song, Track
 from promptbeatai.loopmaker.piano import Piano
 from promptbeatai.loopmaker.sampler import Sampler
 from promptbeatai.loopmaker.synth import SimpleSynth
+
+
+SAMPLE_FOLDER = os.getenv('SAMPLE_FOLDER', None)
 
 
 def synth_from_json(synth_json: dict) -> SimpleSynth:
@@ -38,7 +42,12 @@ def sampler_from_json(sampler_json: dict) -> Sampler:
     filepath = sampler_json.get('filepath')
     if filepath is None:
         raise ValueError("Missing 'filepath' in sampler_json")
-    sampler = Sampler(Path(filepath))
+    if SAMPLE_FOLDER is not None:
+        filepathpath = Path(SAMPLE_FOLDER) / Path(filepath)
+    else:
+        filepathpath = Path(filepath)
+
+    sampler = Sampler(filepathpath)
     return sampler
 
 
@@ -53,7 +62,11 @@ def piano_from_json(piano_json: dict) -> Piano:
     folderpath = piano_json.get('folderpath')
     if folderpath is None:
         raise ValueError("Missing 'folderpath' in piano_json")
-    piano = Piano(Path(folderpath))
+    if SAMPLE_FOLDER is not None:
+        folderpathpath = Path(SAMPLE_FOLDER) / Path(folderpath)
+    else:
+        folderpathpath = Path(folderpath)
+    piano = Piano(folderpathpath)
     return piano
     
 

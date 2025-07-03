@@ -113,6 +113,8 @@ Here is a list of samples you can use:
 {folders}
 ```
 
+**USE ONLY THESE FILEPATHS AND FOLDERPATHS, AND NOTHING ELSE**
+
 ---
 
 To recap, you should answer in two parts:
