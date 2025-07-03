@@ -18,7 +18,7 @@ _NOTE_TO_SEMITONE = {
 _SEMITONE_TO_NOTE = {v: k for k, v in _NOTE_TO_SEMITONE.items() if len(k) == 1 or '#' in k}
 
 
-@dataclass
+@dataclass(frozen=True)
 class Note:
     midi: int
 
