@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wifi, WifiOff, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
 interface ApiStatusMonitorProps {
   className?: string;
@@ -92,9 +92,9 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
   const getStatusText = () => {
     switch (apiHealth.status) {
       case 'online':
-        return 'API Online';
+        return 'Online';
       case 'offline':
-        return 'API Offline';
+        return 'Offline';
       case 'checking':
         return 'Checking...';
     }
@@ -120,7 +120,7 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
   };
 
   return (
-    <div className={`fixed top-4 left-4 z-50 ${className}`}>
+    <div className={`fixed top-4 right-4 z-50 ${className}`}>
       <motion.div
         className={`border rounded-lg backdrop-blur-sm cursor-pointer transition-all duration-200 ${getStatusColor()}`}
         onClick={() => setIsExpanded(!isExpanded)}
@@ -128,7 +128,7 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
         whileTap={{ scale: 0.98 }}
       >
         {/* Compact view */}
-        <div className="flex items-center space-x-2 p-3">
+        <div className="flex items-center space-x-2 p-2 px-3">
           {getStatusIcon()}
           <span className="text-sm font-medium">
             {getStatusText()}

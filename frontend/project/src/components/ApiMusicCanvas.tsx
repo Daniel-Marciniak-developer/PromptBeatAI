@@ -121,45 +121,12 @@ export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
     );
   };
 
-  // API Status indicator
-  const ApiStatusIndicator = () => {
-    const getStatusColor = () => {
-      switch (apiStatus) {
-        case 'idle': return 'bg-gray-500';
-        case 'generating': 
-        case 'pending': return 'bg-yellow-500 animate-pulse';
-        case 'complete': return 'bg-green-500';
-        case 'error': return 'bg-red-500';
-        default: return 'bg-gray-500';
-      }
-    };
 
-    const getStatusText = () => {
-      switch (apiStatus) {
-        case 'idle': return 'Ready';
-        case 'generating': return 'Starting...';
-        case 'pending': return 'Generating...';
-        case 'complete': return 'Complete';
-        case 'error': return 'Error';
-        default: return 'Unknown';
-      }
-    };
-
-    return (
-      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
-        <div className={`w-2 h-2 rounded-full ${getStatusColor()}`}></div>
-        <span className="text-white/80 text-sm font-medium">
-          API: {getStatusText()}
-        </span>
-      </div>
-    );
-  };
 
   // Jeśli mamy wygenerowaną piosenkę, użyj jej danych
   if (song && songDataUrl && apiStatus === 'complete') {
     return (
       <div className="relative">
-        <ApiStatusIndicator />
         <EnhancedMusicCanvas
           isGenerating={false}
           audioSrc="/beat-freestyle.mp3" // Placeholder audio
@@ -180,7 +147,6 @@ export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
   // Fallback - użyj domyślnych danych z overlay statusu
   return (
     <div className="relative">
-      <ApiStatusIndicator />
       <EnhancedMusicCanvas
         isGenerating={isGenerating}
         audioSrc="/beat-freestyle.mp3"
