@@ -48,4 +48,5 @@ class Piano(SoundGenerator):
             self._pitch_shift(note)
 
         sample = self.samples[note]
-        return cast(AudioSegment, sample[:duration_ms])
+        # return cast(AudioSegment, sample[:duration_ms])
+        return sample
