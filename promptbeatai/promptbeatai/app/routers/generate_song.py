@@ -1,4 +1,7 @@
+from io import BytesIO
+from typing import cast
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi.responses import StreamingResponse
 import openai
 import os
 import logging
@@ -7,6 +10,7 @@ import uuid
 from promptbeatai.ai.openai_wrapper import request_song_generation
 from promptbeatai.app.entities.generation_prompt import GenerationPrompt
 from promptbeatai.loopmaker.serialize import song_to_json
+from promptbeatai.loopmaker.core import Song
 
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -225,3 +229,17 @@ async def get_song(song_id: str):
         return {'id': song_id, 'status': 'pending'}
     return {'id': song_id, 'status': 'complete', 'result': song_to_json(song)}
     
+
+@router.get('/song/mp3/{song_id}')
+async def get_song_mp3(song_id: str):
+    if song_id not in song_store:
+        raise HTTPException(status_code=404, detail='Song not found')
+    song = cast(Song, song_store[song_id])
+    mp3 = song.generate()
+    buffer = BytesIO()
+    mp3.export(buffer, format='mp3')
+    buffer.seek(0)
+
+    return StreamingResponse(buffer, media_type="audio/mpeg", headers={
+        "Content-Disposition": "inline; filename=sound.mp3"
+    })
