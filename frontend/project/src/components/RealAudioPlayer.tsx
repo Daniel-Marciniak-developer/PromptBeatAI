@@ -51,6 +51,23 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
   const [isRepeat, setIsRepeat] = useState(false);
   const [isShuffle, setIsShuffle] = useState(false);
   const [frequencyData, setFrequencyData] = useState<Uint8Array>(new Uint8Array(256));
+  const timeUpdateRef = useRef<number>();
+
+  // High-precision time update using requestAnimationFrame
+  const updateTimeWithPrecision = useCallback(() => {
+    if (!audioRef.current || !isPlaying) return;
+
+    const preciseTime = audioRef.current.currentTime;
+    const preciseDuration = audioRef.current.duration;
+
+    setCurrentTime(preciseTime);
+    onTimeUpdate?.(preciseTime, preciseDuration);
+
+    // Continue updating while playing
+    if (isPlaying) {
+      timeUpdateRef.current = requestAnimationFrame(updateTimeWithPrecision);
+    }
+  }, [isPlaying, onTimeUpdate]);
 
   // Initialize audio context and analyser
   const initializeAudioContext = useCallback(() => {
@@ -59,13 +76,19 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     try {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       analyserRef.current = audioContextRef.current.createAnalyser();
-      sourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
-      
+
+      // Try to create media source, but handle CORS errors gracefully
+      try {
+        sourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
+        sourceRef.current.connect(analyserRef.current);
+        analyserRef.current.connect(audioContextRef.current.destination);
+      } catch (corsError) {
+        console.warn('CORS restriction detected, audio will play without frequency analysis:', corsError);
+        // Audio will still play, just without frequency data
+      }
+
       analyserRef.current.fftSize = 512;
       analyserRef.current.smoothingTimeConstant = 0.8;
-      
-      sourceRef.current.connect(analyserRef.current);
-      analyserRef.current.connect(audioContextRef.current.destination);
     } catch (error) {
       console.error('Failed to initialize audio context:', error);
     }
@@ -87,27 +110,56 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
   // Play/Pause functionality
   const togglePlayPause = useCallback(async () => {
-    if (!audioRef.current) return;
+    console.log('🎵 togglePlayPause called, isPlaying:', isPlaying);
+    console.log('🎵 audioRef.current:', audioRef.current);
+    console.log('🎵 audioSrc:', audioSrc);
+
+    if (!audioRef.current) {
+      console.error('❌ Audio ref is null!');
+      return;
+    }
 
     try {
       if (isPlaying) {
+        console.log('⏸️ Pausing audio');
         audioRef.current.pause();
         setIsPlaying(false);
         onPlayStateChange?.(false);
+        // Stop high-precision time updates
+        if (timeUpdateRef.current) {
+          cancelAnimationFrame(timeUpdateRef.current);
+        }
       } else {
+        console.log('▶️ Starting audio playback');
+        console.log('🎵 Audio volume:', audioRef.current.volume);
+        console.log('🎵 Audio muted:', audioRef.current.muted);
+        console.log('🎵 Audio readyState:', audioRef.current.readyState);
+
+        // Initialize audio context on first play
+        if (!audioContextRef.current) {
+          console.log('🎵 Initializing audio context');
+          initializeAudioContext();
+        }
+
         if (audioContextRef.current?.state === 'suspended') {
+          console.log('🎵 Resuming suspended audio context');
           await audioContextRef.current.resume();
         }
+
+        console.log('🎵 Calling audio.play()');
         await audioRef.current.play();
+        console.log('✅ Audio play() successful');
         setIsPlaying(true);
         onPlayStateChange?.(true);
         updateFrequencyData();
+        // Start high-precision time updates
+        updateTimeWithPrecision();
       }
     } catch (error) {
-      console.error('Playback error:', error);
+      console.error('❌ Playback error:', error);
       setIsPlaying(false);
     }
-  }, [isPlaying, updateFrequencyData]);
+  }, [isPlaying, updateFrequencyData, initializeAudioContext, onPlayStateChange, audioSrc]);
 
   // Seek functionality
   const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -124,19 +176,35 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
   // Seek to specific time
   const seekTo = useCallback((time: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = time;
-    setCurrentTime(time);
+    if (!audioRef.current) {
+      console.warn('🎯 SeekTo called but no audio ref');
+      return;
+    }
+
+    console.log('🎯 SeekTo called with time:', time.toFixed(3), 'duration:', audioRef.current.duration?.toFixed(3) || 'unknown');
+
+    // Clamp time to valid range
+    const clampedTime = Math.max(0, Math.min(time, audioRef.current.duration || 0));
+
+    audioRef.current.currentTime = clampedTime;
+    setCurrentTime(clampedTime);
+
+    console.log('🎯 Audio currentTime set to:', audioRef.current.currentTime.toFixed(3));
   }, []);
 
-  // Volume control
+  // Volume control - SINGLE SOURCE OF TRUTH
   const handleVolumeChange = useCallback((newVolume: number) => {
     if (!audioRef.current) return;
 
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
-    setVolume(clampedVolume);
+
+    // Update audio element volume FIRST
     audioRef.current.volume = clampedVolume;
 
+    // Then update state (this won't trigger useEffect anymore)
+    setVolume(clampedVolume);
+
+    // Handle mute state
     if (clampedVolume === 0) {
       setIsMuted(true);
     } else if (isMuted) {
@@ -146,7 +214,15 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
   // Set volume from external control (0-100 range)
   const setVolumeExternal = useCallback((volumePercent: number) => {
-    const volumeDecimal = volumePercent / 100;
+    // Validate input
+    if (typeof volumePercent !== 'number' || isNaN(volumePercent)) {
+      console.error('Invalid volume value:', volumePercent);
+      return;
+    }
+
+    const clampedPercent = Math.max(0, Math.min(100, volumePercent));
+    const volumeDecimal = clampedPercent / 100;
+
     handleVolumeChange(volumeDecimal);
   }, [handleVolumeChange]);
 
@@ -213,14 +289,17 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }, []);
 
-  // Initialize audio volume
+  // Initialize audio volume ONLY ONCE
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Set initial volume
-    audio.volume = volume;
-  }, [volume]);
+    // Set initial volume only once when component mounts
+    audio.volume = 0.8; // Fixed initial volume
+    console.log('🎵 Initial volume set to:', audio.volume);
+    console.log('🎵 Audio muted:', audio.muted);
+    console.log('🎵 Audio src:', audio.src);
+  }, []); // Empty dependency array - runs only once
 
   // Audio event handlers
   useEffect(() => {
@@ -228,15 +307,16 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     if (!audio) return;
 
     const handleLoadedMetadata = () => {
+
       setDuration(audio.duration);
       setIsLoading(false);
-      // Ensure volume is set after metadata loads
-      audio.volume = volume;
     };
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      onTimeUpdate?.(audio.currentTime, audio.duration);
+      // Use high-precision timing for better synchronization
+      const preciseTime = audio.currentTime;
+      setCurrentTime(preciseTime);
+      onTimeUpdate?.(preciseTime, audio.duration);
     };
 
     const handleEnded = () => {
@@ -248,14 +328,27 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       }
     };
 
-    const handleLoadStart = () => setIsLoading(true);
-    const handleCanPlay = () => setIsLoading(false);
+    const handleLoadStart = () => {
+
+      setIsLoading(true);
+    };
+
+    const handleCanPlay = () => {
+
+      setIsLoading(false);
+    };
+
+    const handleError = (e: any) => {
+      console.error('Audio loading error:', e);
+      setIsLoading(false);
+    };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('loadstart', handleLoadStart);
     audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -263,25 +356,22 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('loadstart', handleLoadStart);
       audio.removeEventListener('canplay', handleCanPlay);
+      audio.removeEventListener('error', handleError);
     };
   }, [isRepeat, onTimeUpdate]);
 
-  // Initialize audio context on first user interaction
-  useEffect(() => {
-    const handleFirstInteraction = () => {
-      initializeAudioContext();
-      document.removeEventListener('click', handleFirstInteraction);
-    };
 
-    document.addEventListener('click', handleFirstInteraction);
-    return () => document.removeEventListener('click', handleFirstInteraction);
-  }, [initializeAudioContext]);
+
+
 
   // Cleanup
   useEffect(() => {
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (timeUpdateRef.current) {
+        cancelAnimationFrame(timeUpdateRef.current);
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
@@ -301,8 +391,10 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       <audio
         ref={audioRef}
         src={audioSrc}
-        preload="metadata"
+        preload="auto"
         crossOrigin="anonymous"
+        controls={false}
+        muted={false}
       />
 
       {/* Track Info */}
