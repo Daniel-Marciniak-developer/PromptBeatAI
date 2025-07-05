@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Eye, BarChart3, Radio, Zap, Music2 } from 'lucide-react';
+import { Settings, Eye, Radio, Zap } from 'lucide-react';
 import RealAudioPlayer, { RealAudioPlayerRef } from './RealAudioPlayer';
-import RealAudioVisualizer from './RealAudioVisualizer';
+// import RealAudioVisualizer from './RealAudioVisualizer'; // Commented out - using only LoopmakerVisualizer
 import LoopmakerVisualizer from './LoopmakerVisualizer';
 import { FloatingMusicIcons, RotatingMusicIcons } from './MusicIcons';
 import { VisualSong } from '../types/LoopmakerTypes';
@@ -35,11 +35,14 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   isFavorite = false,
   autoPlay = false
 }) => {
+
+
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [frequencyData, setFrequencyData] = useState<Uint8Array>(new Uint8Array(256));
   const [isPlaying, setIsPlaying] = useState(false);
-  const [visualizerType, setVisualizerType] = useState<'waveform' | 'pianoRoll'>('pianoRoll');
+  // Fixed to pianoRoll only - waveform commented out
+  const visualizerType = 'pianoRoll' as const;
   const [showSettings, setShowSettings] = useState(false);
   const [visualSong, setVisualSong] = useState<VisualSong | null>(null);
   const [parser, setParser] = useState<LoopmakerParser | null>(null);
@@ -53,8 +56,13 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
 
   const handleTimeUpdate = useCallback((time: number, dur: number) => {
     setCurrentTime(time);
-    setDuration(dur);
-  }, []);
+    // Use audio duration if valid, otherwise fallback to song data duration
+    if (isFinite(dur) && dur > 0) {
+      setDuration(dur);
+    } else if (visualSong && isFinite(visualSong.duration) && visualSong.duration > 0) {
+      setDuration(visualSong.duration);
+    }
+  }, [visualSong]);
 
   const handleFrequencyData = useCallback((data: Uint8Array) => {
     setFrequencyData(data);
@@ -115,15 +123,24 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
 
   // Update volume when audioPlayerRef changes
   const updateVolume = useCallback((newVolume: number) => {
-    setVolume(newVolume);
-    if (audioPlayerRef) {
-      audioPlayerRef.setVolume(newVolume); // RealAudioPlayer expects 0-100 range
+    // Validate volume range
+    const clampedVolume = Math.max(0, Math.min(100, newVolume));
+
+    setVolume(clampedVolume);
+
+    // Update audio player volume if available
+    if (audioPlayerRef && typeof audioPlayerRef.setVolume === 'function') {
+      audioPlayerRef.setVolume(clampedVolume); // RealAudioPlayer expects 0-100 range
     }
   }, [audioPlayerRef]);
 
   const handleSeek = useCallback((time: number) => {
+    console.log('🎯 EnhancedMusicCanvas handleSeek called with time:', time.toFixed(3));
     if (audioPlayerRef) {
+      console.log('🎯 Calling audioPlayerRef.seekTo');
       audioPlayerRef.seekTo(time);
+    } else {
+      console.warn('🎯 No audioPlayerRef available');
     }
   }, [audioPlayerRef]);
 
@@ -167,33 +184,76 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
     setHoverTime(newTime);
   }, [duration]);
 
-  // Get all tracks from visual song
+  // Get all tracks from visual song, merging notes from loop repetitions
   const getAllTracks = useCallback(() => {
     if (!visualSong) return [];
 
     const trackMap = new Map<string, any>();
-
     for (const loop of visualSong.loops) {
       for (const track of loop.tracks) {
-        if (!trackMap.has(track.id)) {
-          trackMap.set(track.id, track);
+        // Extract base track name (remove global step offset suffix)
+        const baseTrackId = track.id.split('_').slice(0, -1).join('_') || track.id;
+
+        if (!trackMap.has(baseTrackId)) {
+          // Create new track with base ID
+          trackMap.set(baseTrackId, {
+            ...track,
+            id: baseTrackId,
+            notes: [...track.notes] // Copy notes array
+          });
+        } else {
+          // Merge notes from this loop repetition into existing track
+          const existingTrack = trackMap.get(baseTrackId)!;
+          existingTrack.notes = [...existingTrack.notes, ...track.notes];
         }
       }
     }
-
     return Array.from(trackMap.values());
   }, [visualSong]);
 
-  // Check if track has currently active notes
+  // Check if track has currently active notes with master timeline sync
   const hasActiveNotes = useCallback((track: any) => {
-    if (!track || !parser || typeof currentTime !== 'number') return false;
+    if (!track || !parser || !visualSong || !isFinite(currentTime)) return false;
 
-    // Use parser's getNotesAtTime method to get currently active notes
-    const activeNotes = parser.getNotesAtTime(visualSong!, currentTime);
+    // Use parser's getNotesAtTime method with master duration (audio duration)
+    const activeNotes = parser.getNotesAtTime(visualSong, currentTime, duration);
 
-    // Check if any active note belongs to this track
-    return activeNotes.some(note => note.trackId === track.id);
-  }, [currentTime, parser, visualSong]);
+    // Check if any active note belongs to this track (use base track ID)
+    const baseTrackId = track.id.split('_').slice(0, -1).join('_') || track.id;
+    return activeNotes.some(note => {
+      const noteBaseTrackId = note.trackId.split('_').slice(0, -1).join('_') || note.trackId;
+      return noteBaseTrackId === baseTrackId || note.trackId === track.id;
+    });
+  }, [currentTime, parser, visualSong, duration]);
+
+  // Helper function to clean track names
+  const getCleanTrackName = useCallback((trackName: string): string => {
+    if (!trackName) return 'Unknown Track';
+
+    // Usuń ścieżkę - obsłuż zarówno / jak i \ oraz mieszane ścieżki
+    let fileName = trackName;
+
+    // Znajdź ostatni separator ścieżki
+    const lastSlash = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+    if (lastSlash !== -1) {
+      fileName = fileName.substring(lastSlash + 1);
+    }
+
+    // Usuń rozszerzenie pliku
+    const nameWithoutExt = fileName.replace(/\.(wav|mp3|ogg|flac|aiff|m4a)$/i, '');
+
+    // Jeśli nazwa jest pusta po czyszczeniu, użyj oryginalnej
+    if (!nameWithoutExt.trim()) {
+      return trackName;
+    }
+
+    // Kapitalizuj pierwszą literę i zamień podkreślenia/myślniki na spacje
+    const cleanName = nameWithoutExt
+      .replace(/[_-]/g, ' ')
+      .trim();
+
+    return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+  }, []);
 
   // Get tracks from visual song
   const tracks = visualSong ? visualSong.loops.flatMap(loop => loop.tracks) : [];
@@ -205,15 +265,26 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
         const songData = await loadSongFromJSON(songDataSrc);
         setVisualSong(songData);
 
-        // Create parser for real-time analysis
-        const response = await fetch(songDataSrc);
-        const rawSongData = await response.json();
-        const newParser = new LoopmakerParser(rawSongData);
-        setParser(newParser);
+        // Create parser for real-time analysis - tylko jeśli nie jest blob URL
+        if (!songDataSrc.startsWith('blob:')) {
+          const response = await fetch(songDataSrc);
+          const rawSongData = await response.json();
+          const newParser = new LoopmakerParser(rawSongData);
+          setParser(newParser);
+        } else {
+          // Dla blob URL, użyj songData bezpośrednio
+          const newParser = new LoopmakerParser(songData);
+          setParser(newParser);
+        }
 
         console.log('Loaded song data:', songData);
         console.log('Total duration:', songData.duration, 'seconds');
         console.log('Total tracks:', songData.loops.flatMap(l => l.tracks).length);
+
+        // Set duration from song data if audio duration is not available
+        if (!isFinite(duration) || duration <= 0) {
+          setDuration(songData.duration);
+        }
       } catch (error) {
         console.error('Failed to load song data:', error);
         // Fallback to basic visualization
@@ -222,7 +293,9 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
       }
     };
 
-    loadSongData();
+    if (songDataSrc) {
+      loadSongData();
+    }
   }, [songDataSrc]);
 
   // Set initial volume when audioPlayerRef is available (only once)
@@ -239,336 +312,252 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
     }
   }, [audioPlayerRef, autoPlay, isGenerating]); // Remove volume dependency to avoid loops
 
-  const visualizerTypes = [
-    { type: 'pianoRoll' as const, icon: Music2, label: 'Piano Roll' },
-    { type: 'waveform' as const, icon: BarChart3, label: 'Waveform' }
-  ];
+  // Create fallback audio src when backend is not available
+  const [effectiveAudioSrc, setEffectiveAudioSrc] = useState(audioSrc);
+
+  useEffect(() => {
+    const testAndSetAudioSrc = async () => {
+      try {
+        console.log('🎵 Testing audio file accessibility:', audioSrc);
+
+        // If it's a backend URL, test if it's accessible
+        if (audioSrc.includes('localhost:8000') || audioSrc.includes('http')) {
+          try {
+            // Try HEAD request first
+            const response = await fetch(audioSrc, { method: 'HEAD' });
+            if (response.ok) {
+              console.log('✅ Backend audio file is accessible via HEAD:', audioSrc);
+              setEffectiveAudioSrc(audioSrc);
+              return;
+            }
+          } catch (headError) {
+            console.log('HEAD request failed, trying GET with range:', headError);
+          }
+
+          // If HEAD fails, try a range request to test accessibility
+          try {
+            const response = await fetch(audioSrc, {
+              method: 'GET',
+              headers: { 'Range': 'bytes=0-1' }
+            });
+            if (response.ok || response.status === 206) {
+              console.log('✅ Backend audio file is accessible via range request:', audioSrc);
+              setEffectiveAudioSrc(audioSrc);
+              return;
+            }
+          } catch (rangeError) {
+            console.log('Range request also failed:', rangeError);
+          }
+
+          // If both fail, throw error to trigger fallback
+          throw new Error('Backend audio not accessible');
+        } else {
+          // Local file, use as is
+          setEffectiveAudioSrc(audioSrc);
+        }
+      } catch (error) {
+        console.warn('❌ Backend audio not accessible, falling back to local file:', error);
+        // Fallback to local file only if it's not already a local file
+        if (audioSrc.includes('localhost:8000') || audioSrc.includes('http')) {
+          setEffectiveAudioSrc('/beat-freestyle.mp3');
+        } else {
+          setEffectiveAudioSrc(audioSrc);
+        }
+      }
+    };
+
+    if (audioSrc) {
+      testAndSetAudioSrc();
+    }
+  }, [audioSrc]);
+
+  // Commented out waveform for now - keeping only piano roll
+  // const visualizerTypes = [
+  //   { type: 'pianoRoll' as const, icon: Music2, label: 'Piano Roll' },
+  //   { type: 'waveform' as const, icon: BarChart3, label: 'Waveform' }
+  // ];
 
   return (
     <motion.section
-      className="w-full max-w-none"
+      className="w-full"
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
     >
-      <div className="relative bg-glass backdrop-blur-lg border border-white/10 rounded-3xl overflow-hidden w-full h-[900px] flex flex-col">
-        {/* Integrated Header with Track Info and Controls - Compact */}
-        <div className="relative px-6 pt-4 pb-0">
-          <div className="flex items-center justify-between">
-            {/* Track Info with BPM */}
-            <motion.div
-              className="flex items-center gap-4"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
-                <div className="flex items-center gap-2.5">
-                  <RotatingMusicIcons.Disc
-                    size={16}
-                    color="#a855f7"
-                    speed={isPlaying ? (bpm / 60) : 0}
-                  />
-                  <div>
-                    <div className="text-white font-semibold text-base">{title}</div>
-                    <div className="text-white/60 text-xs">{artist} • {bpm} BPM</div>
+      <div className="relative bg-glass backdrop-blur-lg border border-white/10 rounded-3xl overflow-hidden w-full h-[87vh] min-h-[820px] shadow-2xl pb-2">
+        {/* Single Unified Tablet Panel - All elements integrated */}
+        <div className="relative w-full h-full flex flex-col">
+
+          {/* Top Header Bar - Integrated in main panel */}
+          <div className="absolute top-0 left-0 right-0 z-30 p-4">
+            <div className="flex items-center justify-between">
+              {/* Track Info with BPM */}
+              <motion.div
+                className="flex items-center gap-3"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/20">
+                  <div className="flex items-center gap-2">
+                    <RotatingMusicIcons.Disc
+                      size={14}
+                      color="#a855f7"
+                      speed={isPlaying ? (bpm / 60) : 0}
+                    />
+                    <div>
+                      <div className="text-white font-semibold text-sm">{title}</div>
+                      <div className="text-white/60 text-xs">{artist}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-
-            {/* Action Controls */}
-            <motion.div
-              className="flex items-center gap-3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              {/* Share Button */}
-              <motion.button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg border border-green-500/30 transition-all text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                </svg>
-                Share
-              </motion.button>
-
-              {/* Add to Favorites Button */}
-              <motion.button
-                onClick={handleAddToFavorites}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-sm ${
-                  isFavorite
-                    ? 'bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border-pink-500/30'
-                    : 'bg-white/10 hover:bg-white/20 text-white/60 border-white/20'
-                }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <svg className="w-3.5 h-3.5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                {isFavorite ? 'Favorited' : 'Add to Favorites'}
-              </motion.button>
-
-              {/* Download Button */}
-              <motion.button
-                onClick={handleDownloadClick}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg border border-blue-500/30 transition-all text-sm"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download
-              </motion.button>
-            </motion.div>
-          </div>
-        </div>
-        {/* Seamless Visualization Area - Fill available space completely */}
-        <div className="relative flex-1 overflow-hidden">
-          <div className="relative w-full h-full overflow-hidden">
-            {/* Main Visualizer Content - Fill container completely */}
-            <div className="relative w-full h-full">
-              {visualizerType === 'pianoRoll' ? (
-                <LoopmakerVisualizer
-                  visualSong={visualSong}
-                  currentTime={currentTime}
-                  isPlaying={isPlaying}
-                  parser={parser}
-                  type="pianoRoll"
-                  className="w-full h-full"
-                />
-              ) : (
-                <RealAudioVisualizer
-                  frequencyData={frequencyData}
-                  currentTime={currentTime}
-                  duration={duration}
-                  isPlaying={isPlaying}
-                  type={visualizerType}
-                  audioSrc={audioSrc}
-                  onSeek={handleSeek}
-                  className="w-full h-full"
-                />
-              )}
-            </div>
-
-            {/* Generation Loading Overlay */}
-            {isGenerating && (
-              <motion.div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <div className="text-center">
-                  <motion.div
-                    className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  />
-                  <p className="text-white font-medium">Generating your music...</p>
-                  <p className="text-white/60 text-sm mt-1">This may take a few moments</p>
-                </div>
               </motion.div>
-            )}
 
-            {/* Floating music icons around the canvas */}
-            <div className="absolute inset-0 pointer-events-none z-10">
-              <FloatingMusicIcons.Piano
-                color="#a855f7"
-                size={14}
-                delay={0}
-                duration={4}
-                className="top-[20%] left-[10%]"
-              />
-              <FloatingMusicIcons.Guitar
-                color="#ef4444"
-                size={12}
-                delay={1}
-                duration={3.5}
-                className="top-[60%] right-[15%]"
-              />
-              <FloatingMusicIcons.Drum
-                color="#06b6d4"
-                size={16}
-                delay={2}
-                duration={4.5}
-                className="bottom-[30%] left-[20%]"
-              />
-              <FloatingMusicIcons.Mic
-                color="#f59e0b"
-                size={13}
-                delay={0.5}
-                duration={3.8}
-                className="top-[40%] right-[25%]"
-              />
-              <FloatingMusicIcons.Music
-                color="#10b981"
-                size={15}
-                delay={1.5}
-                duration={4.2}
-                className="bottom-[50%] right-[10%]"
-              />
-            </div>
-          </div>
-        </div>
-        {/* Seamless Control Bar - Direct continuation with padding */}
-        <div className="bg-glass backdrop-blur-lg border-t border-white/10">
-          <div className="px-8 py-6">
-
-          {/* Track Information Panel - Above Progress Bar */}
-          {visualSong && (
-            <div className="mb-6 bg-gradient-to-br from-black/40 to-black/20 backdrop-blur-sm rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-white/70 text-sm font-medium">
-                  {getAllTracks().length} tracks • {getAllTracks().reduce((sum, track) => sum + track.notes.length, 0)} notes
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {getAllTracks().map(track => {
-                    const trackIsActive = hasActiveNotes(track);
-                    return (
-                      <motion.div
-                        key={track.id}
-                        className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-all min-w-fit ${
-                          trackIsActive ? 'bg-white/20' : 'bg-white/5'
-                        }`}
-                        animate={{
-                          opacity: trackIsActive ? 1 : 0.6
-                        }}
-                        transition={{
-                          duration: 0.2,
-                          ease: "easeInOut"
-                        }}
-                        layout
-                      >
-                        <motion.div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: track.color }}
-                          animate={{
-                            scale: trackIsActive ? 1.2 : 1,
-                            boxShadow: trackIsActive ? `0 0 8px ${track.color}` : 'none'
-                          }}
-                          transition={{
-                            duration: 0.2,
-                            ease: "easeInOut"
-                          }}
-                        />
-                        <span className="text-white text-xs font-medium whitespace-nowrap">{track.name}</span>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Progress Bar with Scrubbing */}
-          <div className="relative mb-6">
-            <div
-              className="h-3 bg-white/20 rounded-full overflow-hidden cursor-pointer"
-              onClick={handleProgressClick}
-              onMouseMove={handleProgressHover}
-              onMouseLeave={() => setHoverTime(null)}
-            >
+              {/* Action Controls */}
               <motion.div
-                className="h-full bg-gradient-to-r from-purple-400 to-blue-400 rounded-full shadow-lg"
-                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                transition={{ duration: 0.1 }}
-              />
-              {/* Hover indicator */}
-              {hoverTime !== null && (
-                <div
-                  className="absolute top-0 w-0.5 h-full bg-white/60"
-                  style={{ left: `${(hoverTime / duration) * 100}%` }}
-                />
-              )}
-            </div>
-            {/* Time Labels */}
-            <div className="flex justify-between text-xs text-white/60 mt-3">
-              <span>{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}</span>
-              <span>{Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}</span>
-            </div>
-          </div>
-
-          {/* Control Row - Centered Play/Stop with Side Controls */}
-          <div className="flex items-center justify-between">
-            {/* Left: Volume Control */}
-            <div className="flex items-center gap-3 flex-1">
-              <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-              </svg>
-              <div className="w-32">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={volume}
-                  onChange={(e) => {
-                    const newVolume = Number(e.target.value);
-                    console.log('Volume slider changed to:', newVolume);
-                    updateVolume(newVolume);
-                  }}
-                  className="volume-slider w-full"
-                  style={{
-                    background: `linear-gradient(to right, #8b5cf6 0%, #3b82f6 ${volume}%, rgba(255,255,255,0.2) ${volume}%, rgba(255,255,255,0.2) 100%)`
-                  }}
-                />
-              </div>
-              <span className="text-white/50 text-sm min-w-[3ch] font-mono">{volume}</span>
-            </div>
-
-            {/* Center: Large Play/Stop Button */}
-            <div className="flex justify-center">
-              <motion.button
-                onClick={togglePlayPause}
-                className="w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white hover:shadow-2xl transition-all shadow-lg"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
               >
-                {isPlaying ? (
-                  <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
-                  </svg>
-                ) : (
-                  <svg className="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                )}
-              </motion.button>
-            </div>
-
-            {/* Right: Visualizer Type Selector */}
-            <div className="flex items-center gap-2 flex-1 justify-end">
-              {visualizerTypes.map(({ type, icon: Icon, label }) => (
+                {/* Share Button */}
                 <motion.button
-                  key={type}
-                  onClick={() => setVisualizerType(type)}
-                  className={`p-3 rounded-lg transition-all ${
-                    visualizerType === type
-                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                      : 'text-white/60 hover:text-white hover:bg-white/10'
+                  onClick={handleShare}
+                  className="flex items-center gap-1 px-2 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg border border-green-500/30 transition-all text-xs"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Share"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                  </svg>
+                  Share
+                </motion.button>
+
+                {/* Add to Favorites Button */}
+                <motion.button
+                  onClick={handleAddToFavorites}
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg border transition-all text-xs ${
+                    isFavorite
+                      ? 'bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 border-pink-500/30'
+                      : 'bg-white/10 hover:bg-white/20 text-white/60 border-white/20'
                   }`}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  title={label}
+                  title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
                 >
-                  <Icon className="w-5 h-5" />
+                  <svg className="w-3 h-3" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {isFavorite ? 'Favorited' : 'Add to Favorites'}
                 </motion.button>
-              ))}
+
+                {/* Download Button */}
+                <motion.button
+                  onClick={handleDownloadClick}
+                  className="flex items-center gap-1 px-2 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg border border-blue-500/30 transition-all text-xs"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Download"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download
+                </motion.button>
+              </motion.div>
             </div>
           </div>
+
+          {/* Main Visualizer Content - Full height with padding for top overlay only */}
+          <div className="relative w-full h-full pt-20">
+            {/* Only Piano Roll Visualizer - Waveform commented out */}
+            <LoopmakerVisualizer
+              visualSong={visualSong}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              parser={parser}
+              type="pianoRoll"
+              className="h-full"
+              onSeek={handleSeek}
+              duration={duration}
+              volume={volume}
+              bpm={bpm}
+              onPlayPause={togglePlayPause}
+              onVolumeChange={updateVolume}
+              externalGetCleanTrackName={getCleanTrackName}
+              externalGetAllTracks={getAllTracks}
+              externalHasActiveNotes={hasActiveNotes}
+            />
+          </div>
+
+
+
+          {/* Generation Loading Overlay */}
+          {isGenerating && (
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="text-center">
+                <motion.div
+                  className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full mx-auto mb-4"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+                <p className="text-white font-medium">Generating your music...</p>
+                <p className="text-white/60 text-sm mt-1">This may take a few moments</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Floating music icons around the canvas */}
+          <div className="absolute inset-0 pointer-events-none z-10">
+            <FloatingMusicIcons.Piano
+              color="#a855f7"
+              size={14}
+              delay={0}
+              duration={4}
+              className="top-[20%] left-[10%]"
+            />
+            <FloatingMusicIcons.Guitar
+              color="#ef4444"
+              size={12}
+              delay={1}
+              duration={3.5}
+              className="top-[60%] right-[15%]"
+            />
+            <FloatingMusicIcons.Drum
+              color="#06b6d4"
+              size={16}
+              delay={2}
+              duration={4.5}
+              className="bottom-[30%] left-[20%]"
+            />
+            <FloatingMusicIcons.Mic
+              color="#f59e0b"
+              size={13}
+              delay={0.5}
+              duration={3.8}
+              className="top-[40%] right-[25%]"
+            />
+            <FloatingMusicIcons.Music
+              color="#10b981"
+              size={15}
+              delay={1.5}
+              duration={4.2}
+              className="bottom-[50%] right-[10%]"
+            />
           </div>
         </div>
+        {/* Integrated UI Elements - All within main panel */}
 
         {/* Hidden Audio Player for Real Functionality */}
-        <div className="hidden">
+        <div style={{ position: 'absolute', left: '-9999px', opacity: 0 }}>
           <RealAudioPlayer
-            audioSrc={audioSrc}
+            audioSrc={effectiveAudioSrc}
             title={title}
             artist={artist}
             onTimeUpdate={handleTimeUpdate}
