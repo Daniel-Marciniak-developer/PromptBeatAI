@@ -113,25 +113,34 @@ export class PromptBeatAIClient {
   }
 
   /**
+   * Buduje URL do MP3 dla danej piosenki
+   * @param songId - ID piosenki
+   * @returns URL do MP3
+   */
+  getMp3Url(songId: string): string {
+    return `${this.baseUrl}/song/mp3/${songId}`;
+  }
+
+  /**
    * Kompletny workflow - generuje piosenkę i czeka na wynik
    * @param prompt - Prompt do generowania muzyki
    * @param onProgress - Callback wywoływany podczas oczekiwania
-   * @returns Promise z ukończoną piosenką
+   * @returns Promise z ukończoną piosenką i ID
    */
   async generateAndWaitForSong(
     prompt: GenerationPrompt,
     onProgress?: (status: 'generating' | 'pending' | 'complete') => void
-  ): Promise<Song> {
+  ): Promise<{ song: Song; songId: string }> {
     // Rozpocznij generowanie
     onProgress?.('generating');
     const response = await this.generateSong(prompt);
-    
+
     // Czekaj na wynik
     onProgress?.('pending');
     const song = await this.waitForSong(response.id);
-    
+
     onProgress?.('complete');
-    return song;
+    return { song, songId: response.id };
   }
 }
 
@@ -142,7 +151,8 @@ export const promptBeatAI = new PromptBeatAIClient();
 export const generateSong = (prompt: GenerationPrompt) => promptBeatAI.generateSong(prompt);
 export const getSongStatus = (songId: string) => promptBeatAI.getSongStatus(songId);
 export const waitForSong = (songId: string) => promptBeatAI.waitForSong(songId);
+export const getMp3Url = (songId: string) => promptBeatAI.getMp3Url(songId);
 export const generateAndWaitForSong = (
-  prompt: GenerationPrompt, 
+  prompt: GenerationPrompt,
   onProgress?: (status: 'generating' | 'pending' | 'complete') => void
 ) => promptBeatAI.generateAndWaitForSong(prompt, onProgress);
