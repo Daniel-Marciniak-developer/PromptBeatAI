@@ -1,12 +1,13 @@
 from io import BytesIO
 from typing import cast
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 import openai
 import os
 import logging
 import uuid
 
+from fastapi.responses import RedirectResponse
 from promptbeatai.ai.openai_wrapper import request_song_generation
 from promptbeatai.app.entities.generation_prompt import GenerationPrompt
 from promptbeatai.loopmaker.serialize import song_to_json
@@ -230,16 +231,84 @@ async def get_song(song_id: str):
     return {'id': song_id, 'status': 'complete', 'result': song_to_json(song)}
     
 
-@router.get('/song/mp3/{song_id}')
-async def get_song_mp3(song_id: str):
+@router.options('/song/mp3/{song_id}')
+async def options_song_mp3(song_id: str = None):
+    """OPTIONS request for CORS preflight"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
+@router.head('/song/mp3/{song_id}')
+async def head_song_mp3(song_id: str):
+    """HEAD request for MP3 - returns headers without body"""
+    if song_id == '0':
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "audio/mpeg",
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+
     if song_id not in song_store:
         raise HTTPException(status_code=404, detail='Song not found')
     song = cast(Song, song_store[song_id])
-    mp3 = song.generate()
+    if song is None:
+        raise HTTPException(status_code=202, detail='Song still generating')
+
+    return Response(
+        status_code=200,
+        headers={
+            "Content-Type": "audio/mpeg",
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
+
+@router.get('/song/mp3/{song_id}')
+async def get_song_mp3(song_id: str):
+    if song_id == '0':
+        return RedirectResponse(url="/beat-freestyle.mp3")
+    if song_id not in song_store:
+        raise HTTPException(status_code=404, detail='Song not found')
+    song = cast(Song, song_store[song_id])
+    if song is None:
+        raise HTTPException(status_code=202, detail='Song still generating')
+
+    audio = song.generate()
     buffer = BytesIO()
-    mp3.export(buffer, format='mp3')
+
+    try:
+        audio.export(buffer, format='mp3')
+        media_type = "audio/mpeg"
+        filename = "sound.mp3"
+    except FileNotFoundError:
+        buffer = BytesIO()
+        audio.export(buffer, format='wav')
+        media_type = "audio/wav"
+        filename = "sound.wav"
+
     buffer.seek(0)
 
-    return StreamingResponse(buffer, media_type="audio/mpeg", headers={
-        "Content-Disposition": "inline; filename=sound.mp3"
-    })
+    return StreamingResponse(
+        buffer,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f"inline; filename={filename}",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Accept-Ranges": "bytes"
+        }
+    )

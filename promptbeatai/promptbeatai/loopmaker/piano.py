@@ -9,12 +9,16 @@ class Piano(SoundGenerator):
         super().__init__()
         self.folderpath = folderpath
         self.samples: Dict[Note, AudioSegment] = {}
-
+        audio_extensions = {'.wav', '.mp3', '.flac', '.aiff', '.ogg', '.m4a'}
         for sample_file in self.folderpath.iterdir():
-            if sample_file.is_file():
+            if sample_file.is_file() and sample_file.suffix.lower() in audio_extensions:
                 note_name = sample_file.stem
-                note = Note.from_name(note_name)
-                self.samples[note] = AudioSegment.from_file(sample_file)
+                try:
+                    note = Note.from_name(note_name)
+                    self.samples[note] = AudioSegment.from_file(sample_file)
+                except ValueError as e:
+                    print(f"Warning: Skipping file {sample_file.name} - {e}")
+                    continue
 
         if not self.samples:
             raise ValueError('No available samples to play')
