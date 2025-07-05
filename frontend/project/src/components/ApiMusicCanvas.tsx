@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Song } from '../types/LoopmakerTypes';
 import { LoopmakerParser } from '../utils/LoopmakerParser';
+import { getMp3Url } from '../services/api/promptbeatai';
 import EnhancedMusicCanvas from './EnhancedMusicCanvas';
 
 interface ApiMusicCanvasProps {
   song: Song | null;
+  songId: string | null;
   isGenerating: boolean;
   apiStatus: 'idle' | 'generating' | 'pending' | 'complete' | 'error';
   apiError: string | null;
@@ -19,6 +21,7 @@ interface ApiMusicCanvasProps {
 
 export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
   song,
+  songId,
   isGenerating,
   apiStatus,
   apiError,
@@ -31,6 +34,14 @@ export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
   autoPlay = false
 }) => {
   const [songDataUrl, setSongDataUrl] = useState<string | null>(null);
+
+  // Generuj URL do MP3 na podstawie songId
+  const audioSrc = useMemo(() => {
+    if (songId && apiStatus === 'complete') {
+      return getMp3Url(songId);
+    }
+    return "/beat-freestyle.mp3"; // Fallback
+  }, [songId, apiStatus]);
 
   // Konwertuj Song object na blob URL dla EnhancedMusicCanvas
   useEffect(() => {
@@ -129,7 +140,7 @@ export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
       <div className="relative">
         <EnhancedMusicCanvas
           isGenerating={false}
-          audioSrc="/beat-freestyle.mp3" // Placeholder audio
+          audioSrc={audioSrc} // Użyj dynamicznego URL-a MP3
           songDataSrc={songDataUrl} // Użyj wygenerowanych danych
           title={title}
           artist={artist}
@@ -149,7 +160,7 @@ export const ApiMusicCanvas: React.FC<ApiMusicCanvasProps> = ({
     <div className="relative">
       <EnhancedMusicCanvas
         isGenerating={isGenerating}
-        audioSrc="/beat-freestyle.mp3"
+        audioSrc={audioSrc} // Użyj dynamicznego URL-a MP3 lub fallback
         songDataSrc="/beat-freestyle.json" // Fallback do przykładowych danych
         title={title}
         artist={artist}

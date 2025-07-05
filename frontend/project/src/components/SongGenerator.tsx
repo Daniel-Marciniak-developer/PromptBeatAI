@@ -3,7 +3,7 @@ import { generateAndWaitForSong, GenerationPrompt } from '../services/api';
 import { Song } from '../types/LoopmakerTypes';
 
 interface SongGeneratorProps {
-  onSongGenerated?: (song: Song) => void;
+  onSongGenerated?: (song: Song, songId: string) => void;
 }
 
 export const SongGenerator: React.FC<SongGeneratorProps> = ({ onSongGenerated }) => {
@@ -13,6 +13,7 @@ export const SongGenerator: React.FC<SongGeneratorProps> = ({ onSongGenerated })
   const [status, setStatus] = useState<'idle' | 'generating' | 'pending' | 'complete' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [generatedSong, setGeneratedSong] = useState<Song | null>(null);
+  const [generatedSongId, setGeneratedSongId] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -23,6 +24,7 @@ export const SongGenerator: React.FC<SongGeneratorProps> = ({ onSongGenerated })
     setIsGenerating(true);
     setError(null);
     setGeneratedSong(null);
+    setGeneratedSongId(null);
 
     try {
       const generationPrompt: GenerationPrompt = {
@@ -32,13 +34,14 @@ export const SongGenerator: React.FC<SongGeneratorProps> = ({ onSongGenerated })
         },
       };
 
-      const song = await generateAndWaitForSong(generationPrompt, (progressStatus) => {
+      const result = await generateAndWaitForSong(generationPrompt, (progressStatus) => {
         setStatus(progressStatus);
       });
 
-      setGeneratedSong(song);
+      setGeneratedSong(result.song);
+      setGeneratedSongId(result.songId);
       setStatus('complete');
-      onSongGenerated?.(song);
+      onSongGenerated?.(result.song, result.songId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setStatus('error');
