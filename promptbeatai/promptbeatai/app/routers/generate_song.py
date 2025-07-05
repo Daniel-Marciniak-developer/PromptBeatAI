@@ -1,25 +1,30 @@
+import google.genai
 from io import BytesIO
 from typing import cast
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, RedirectResponse
 import openai
 import os
 import logging
 import uuid
 
-from fastapi.responses import RedirectResponse
 from promptbeatai.ai.openai_wrapper import OpenAISongGeneratorClient, request_song_generation
 from promptbeatai.app.entities.generation_prompt import GenerationPrompt
 from promptbeatai.loopmaker.serialize import song_to_json
 from promptbeatai.loopmaker.core import Song
 
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
 router = APIRouter()
 
-openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
-song_generator_client = OpenAISongGeneratorClient(openai_client)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', None)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', None)
+
+if GEMINI_API_KEY:
+    client = google.genai.Client(api_key=GEMINI_API_KEY)
+elif OPENAI_API_KEY:
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+song_generator_client = OpenAISongGeneratorClient(client)
 
 song_store = {}
 
