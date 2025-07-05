@@ -5,7 +5,7 @@ import Header from './components/Header';
 import PromptSection from './components/PromptSection';
 import { ApiMusicCanvas } from './components/ApiMusicCanvas';
 import { ApiStatusMonitor } from './components/ApiStatusMonitor';
-import { generateAndWaitForSong, GenerationPrompt } from './services/api';
+import { generateAndWaitForSong, GenerationPrompt, getMp3Url } from './services/api';
 import { Song } from './types/LoopmakerTypes';
 
 import HintSuggestions from './components/HintSuggestions';
@@ -31,6 +31,7 @@ const AppContent: React.FC = () => {
 
   // API Integration
   const [generatedSong, setGeneratedSong] = useState<Song | null>(null);
+  const [generatedSongId, setGeneratedSongId] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<'idle' | 'generating' | 'pending' | 'complete' | 'error'>('idle');
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -96,12 +97,13 @@ const AppContent: React.FC = () => {
       };
 
       // Wywołaj API z progress callback
-      const song = await generateAndWaitForSong(generationPrompt, (status) => {
+      const result = await generateAndWaitForSong(generationPrompt, (status) => {
         setApiStatus(status);
       });
 
       // Zapisz wygenerowaną piosenkę
-      setGeneratedSong(song);
+      setGeneratedSong(result.song);
+      setGeneratedSongId(result.songId);
       setApiStatus('complete');
       setHasGenerated(true);
       setShowAdvanced(true);
@@ -112,17 +114,24 @@ const AppContent: React.FC = () => {
         id: Date.now().toString(),
         name: `Generated Track ${Date.now()}`,
         prompt: prompt,
-        audioUrl: "/beat-freestyle.mp3", // Placeholder - na razie używamy istniejący plik
+        audioUrl: getMp3Url(result.songId), // Użyj prawdziwego URL-a do wygenerowanej muzyki
         createdAt: new Date(),
         duration: settings.defaultDuration,
         style: settings.defaultStyle || "AI Generated",
-        bpm: song.bpm,
+        bpm: result.song.bpm,
         isFavorite: false,
-        songData: song // Dodajemy wygenerowane dane piosenki
+        songData: result.song // Dodajemy wygenerowane dane piosenki
       };
 
       // Set current project for sharing
       setCurrentProject(newProject);
+
+      // Auto-save project if enabled
+      if (settings.autoSave) {
+        const projects = JSON.parse(localStorage.getItem('promptbeat-projects') || '[]');
+        projects.unshift(newProject);
+        localStorage.setItem('promptbeat-projects', JSON.stringify(projects.slice(0, 50))); // Keep only 50 projects
+      }
 
     } catch (error) {
       console.error('Error generating song:', error);
@@ -130,13 +139,6 @@ const AppContent: React.FC = () => {
       setApiStatus('error');
     } finally {
       setIsGenerating(false);
-    }
-
-    // Auto-save project if enabled
-    if (settings.autoSave) {
-      const projects = JSON.parse(localStorage.getItem('promptbeat-projects') || '[]');
-      projects.unshift(newProject);
-      localStorage.setItem('promptbeat-projects', JSON.stringify(projects.slice(0, 50))); // Keep only 50 projects
     }
 
     // Save to history
@@ -212,6 +214,10 @@ const AppContent: React.FC = () => {
     setHasGenerated(false);
     setShowAdvanced(false);
     setShowHints(false);
+    setGeneratedSong(null);
+    setGeneratedSongId(null);
+    setApiStatus('idle');
+    setApiError(null);
   };
 
   const handleRandomPrompt = () => {
@@ -308,7 +314,7 @@ const AppContent: React.FC = () => {
             overflow: 'visible'
           }}
         >
-          <div className="max-w-7xl mx-auto px-6">
+          <div className="w-full px-6">
             <PromptSection
               prompt={prompt}
               setPrompt={setPrompt}
@@ -331,6 +337,7 @@ const AppContent: React.FC = () => {
                 >
                   <ApiMusicCanvas
                     song={generatedSong}
+                    songId={generatedSongId}
                     isGenerating={isGenerating}
                     apiStatus={apiStatus}
                     apiError={apiError}
@@ -342,7 +349,7 @@ const AppContent: React.FC = () => {
                       const downloadFormat = format || settings.downloadFormat;
 
                       // Create a download link for the audio file
-                      const audioSrc = "/beat-freestyle.mp3";
+                      const audioSrc = generatedSongId ? getMp3Url(generatedSongId) : "/beat-freestyle.mp3";
                       const link = document.createElement('a');
                       link.href = audioSrc;
                       link.download = `ai-generated-${quality}.${downloadFormat.toLowerCase()}`;
