@@ -16,28 +16,35 @@ def request_composition_draft(
     client: genai.Client,
     prompt: GenerationPrompt
 ) -> str:
+    combined_prompt = f"{SYSTEM_PROMPT}\n\n{stringify_generation_prompt(prompt)}"
     resp = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=[
             types.Content(
-                role="system",
-                parts=[types.Part(text=SYSTEM_PROMPT)]
-            ),
-            types.Content(
                 role="user",
-                parts=[types.Part(text=stringify_generation_prompt(prompt))]
+                parts=[types.Part(text=combined_prompt)]
             ),
-        ],
-        temperature=0.9,
-        max_output_tokens=16_384
+        ]
     )
     return resp.text
 
 def extract_json_from_response(response: str) -> dict:
-    m = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
-    if not m:
-        raise ValueError("No JSON block found in Gemini response")
-    return json.loads(m.group(1))
+    patterns = [
+        r'```json\s*(\{.*?\})\s*```',
+        r'```\s*(\{.*?\})\s*```',
+        r'(\{.*?\})',
+    ]
+
+    for pattern in patterns:
+        m = re.search(pattern, response, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except json.JSONDecodeError:
+                continue
+
+    logging.error(f"Failed to extract JSON from Gemini response: {response}")
+    raise ValueError(f"No valid JSON block found in Gemini response. Response was: {response[:500]}...")
 
 def request_song_generation(
     client: genai.Client,
@@ -45,7 +52,7 @@ def request_song_generation(
 ) -> Song:
     logging.info("Sending request to Gemini API")
     draft = request_composition_draft(client, prompt)
-    logging.debug(f"Gemini raw draft: {draft!r}")
+    logging.info(f"Gemini raw response: {draft}")
     song_dict = extract_json_from_response(draft)
     song = song_from_json(song_dict)
     logging.info("Song generation successful")

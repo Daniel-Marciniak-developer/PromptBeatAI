@@ -37,3 +37,20 @@ app.add_middleware(
 )
 
 app.include_router(generate_song_router)
+
+@app.get('/health')
+async def health_check():
+    """Health check endpoint that shows which AI service is being used"""
+    from .routers.generate_song import GEMINI_API_KEY, OPENAI_API_KEY
+
+    ai_service = 'none'
+    if GEMINI_API_KEY:
+        ai_service = 'gemini'
+    elif OPENAI_API_KEY:
+        ai_service = 'openai'
+
+    return {
+        'status': 'healthy',
+        'ai_service': ai_service,
+        'version': '1.0.0'
+    }

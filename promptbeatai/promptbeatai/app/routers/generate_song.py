@@ -8,7 +8,8 @@ import os
 import logging
 import uuid
 
-from promptbeatai.ai.openai_wrapper import OpenAISongGeneratorClient, request_song_generation
+from promptbeatai.ai.openai_wrapper import OpenAISongGeneratorClient
+from promptbeatai.ai.gemini_wrapper import GeminiSongGeneratorClient
 from promptbeatai.app.entities.generation_prompt import GenerationPrompt
 from promptbeatai.loopmaker.serialize import song_to_json
 from promptbeatai.loopmaker.core import Song
@@ -21,10 +22,12 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', None)
 
 if GEMINI_API_KEY:
     client = google.genai.Client(api_key=GEMINI_API_KEY)
+    song_generator_client = GeminiSongGeneratorClient(client)
 elif OPENAI_API_KEY:
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
-song_generator_client = OpenAISongGeneratorClient(client)
+    song_generator_client = OpenAISongGeneratorClient(client)
+else:
+    raise RuntimeError("No API key provided for either Gemini or OpenAI")
 
 song_store = {}
 
@@ -39,10 +42,13 @@ def generate_and_store_song(prompt: GenerationPrompt, song_id: str):
 async def generate_song(prompt: GenerationPrompt, request: Request, background_tasks: BackgroundTasks):
     logging.info('Song generation started')
     if os.getenv('DEBUG', 0) == '1':
-        return {'id': '0'}
+        return {'id': '0', 'mode': 'mock'}
     song_id = str(uuid.uuid4())
     background_tasks.add_task(generate_and_store_song, prompt, song_id)
-    return {'id': song_id}
+
+    # Determine which API is being used
+    mode = 'gemini' if GEMINI_API_KEY else 'openai'
+    return {'id': song_id, 'mode': mode}
 
 
 @router.get('/song/{song_id}')
