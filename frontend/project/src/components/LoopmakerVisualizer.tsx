@@ -17,9 +17,7 @@ interface LoopmakerVisualizerProps {
   bpm?: number;
   onPlayPause?: () => void;
   onVolumeChange?: (volume: number) => void;
-  externalGetCleanTrackName?: (name: string) => string;
   externalGetAllTracks?: () => any[];
-  externalHasActiveNotes?: (track: any) => boolean;
 }
 
 const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
@@ -27,20 +25,15 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
   currentTime,
   isPlaying,
   className = '',
-  type = 'pianoRoll',
   onSeek,
   // New props for integrated controls
   duration = 0,
   volume = 80,
-  bpm = 128,
   onPlayPause,
   onVolumeChange,
-  externalGetCleanTrackName,
-  externalGetAllTracks,
-  externalHasActiveNotes
+  externalGetAllTracks
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({
     width: 1200, // Domyślna szerokość, zostanie zaktualizowana
     height: 600
@@ -62,7 +55,153 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     playhead: '#ff0080'      // Kolor playheada
   };
 
-  // Funkcja do czyszczenia nazw ścieżek
+  // NOWA PALETA - bardzo różnorodne kolory, unikające kolorów kategorii (czerwone, niebieskie, zielone)
+  const trackRowColors = [
+    '#FF69B4', // Hot Pink
+    '#FF1493', // Deep Pink
+    '#DA70D6', // Orchid
+    '#BA55D3', // Medium Orchid
+    '#9370DB', // Medium Purple
+    '#8A2BE2', // Blue Violet
+    '#9932CC', // Dark Orchid
+    '#FF4500', // Orange Red
+    '#FF6347', // Tomato
+    '#FF7F50', // Coral
+    '#FFA500', // Orange
+    '#FFD700', // Gold
+    '#FFFF00', // Yellow
+    '#ADFF2F', // Green Yellow
+    '#7FFF00', // Chartreuse
+    '#32CD32', // Lime Green
+    '#00FF7F', // Spring Green
+    '#00FA9A', // Medium Spring Green
+    '#40E0D0', // Turquoise
+    '#48D1CC', // Medium Turquoise
+    '#00CED1', // Dark Turquoise
+    '#5F9EA0', // Cadet Blue
+    '#4682B4', // Steel Blue
+    '#6495ED', // Cornflower Blue
+    '#87CEEB', // Sky Blue
+    '#87CEFA', // Light Sky Blue
+    '#B0C4DE', // Light Steel Blue
+    '#DDA0DD', // Plum
+    '#EE82EE', // Violet
+    '#D8BFD8'  // Thistle
+  ];
+
+  // NOWA FUNKCJA: Unikalny kolor dla każdego WIERSZA na podstawie nazwy nuty
+  const getEnhancedTrackColor = useCallback((track: VisualTrack, trackId: string): string => {
+    // Użyj pełnego klucza trackId do determinowania koloru (każdy track = inny kolor)
+    const uniqueKey = trackId;
+
+    // Stwórz stabilny hash z pełnego klucza
+    let hash = 0;
+    for (let i = 0; i < uniqueKey.length; i++) {
+      const char = uniqueKey.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    // Użyj hash do wyboru koloru z palety - dodaj offset żeby uniknąć pierwszych kolorów
+    const colorIndex = (Math.abs(hash) + 7) % trackRowColors.length; // +7 offset dla większej różnorodności
+    const selectedColor = trackRowColors[colorIndex];
+
+    // Kolory są teraz różnorodne i unikalne dla każdego tracka
+
+    return selectedColor;
+  }, []);
+
+  // Funkcja do muzycznego porównywania nut (C2 < C3 < C4, C < C# < D, itp.)
+  const compareNotesMusicially = useCallback((noteA: string, noteB: string): number => {
+    const noteOrder = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+    // Parsuj nuty (np. "C#3" -> {note: "C#", octave: 3})
+    const parseNote = (note: string) => {
+      const match = note.match(/^([A-G]#?)(\d+)$/);
+      if (!match) return { note: note, octave: 0 };
+      return { note: match[1], octave: parseInt(match[2]) };
+    };
+
+    const parsedA = parseNote(noteA);
+    const parsedB = parseNote(noteB);
+
+    // Najpierw sortuj według oktawy (niższe oktawy pierwsze)
+    if (parsedA.octave !== parsedB.octave) {
+      return parsedA.octave - parsedB.octave;
+    }
+
+    // Potem według nazwy nuty w kolejności muzycznej
+    const indexA = noteOrder.indexOf(parsedA.note);
+    const indexB = noteOrder.indexOf(parsedB.note);
+
+    return indexA - indexB;
+  }, []);
+
+  // Get border color for instrument groups
+  const getInstrumentBorderColor = useCallback((track: VisualTrack): string => {
+    const trackType = track.type?.toLowerCase() || '';
+    const filepath = track.filepath?.toLowerCase() || '';
+    const waveform = track.waveform?.toLowerCase() || '';
+
+    // LOGICZNE GRUPOWANIE KOLORÓW - podobne instrumenty obok siebie
+
+    // GRUPA SAMPLER - CZERWONE ODCIENIE (perkusja i sample)
+    if (trackType === 'sampler') {
+      if (filepath.includes('kick') || filepath.includes('bd')) {
+        return '#FF0000'; // Jasny czerwony - KICK
+      }
+      if (filepath.includes('snare') || filepath.includes('sd')) {
+        return '#CC0000'; // Ciemny czerwony - SNARE
+      }
+      if (filepath.includes('hat') || filepath.includes('hh') || filepath.includes('hihat')) {
+        return '#FF3333'; // Średni czerwony - HI-HAT
+      }
+      if (filepath.includes('crash') || filepath.includes('cymbal') || filepath.includes('ride')) {
+        return '#990000'; // Bardzo ciemny czerwony - CYMBALS
+      }
+      if (filepath.includes('perc') || filepath.includes('shaker') || filepath.includes('tambourine')) {
+        return '#FF6666'; // Jasny czerwony - PERCUSSION
+      }
+      // Pozostałe sample
+      return '#AA0000'; // Domyślny czerwony dla sampler
+    }
+
+    // GRUPA PIANO - NIEBIESKIE ODCIENIE (wszystkie nuty piano)
+    if (trackType === 'piano') {
+      return '#0066FF'; // Niebieski dla wszystkich nut piano
+    }
+
+    // GRUPA SYNTH - RÓŻNE KOLORY według waveform i zastosowania
+    if (trackType === 'synth') {
+      // Bass synth (niskie nuty) - ZIELONE ODCIENIE
+      if (waveform === 'sawtooth' || filepath.includes('bass')) {
+        return '#00AA00'; // Zielony - BASS SYNTH
+      }
+
+      // Lead synth (wysokie nuty) - ŻÓŁTE ODCIENIE
+      if (waveform === 'square' || filepath.includes('lead')) {
+        return '#FFAA00'; // Pomarańczowo-żółty - LEAD SYNTH
+      }
+
+      // Pad synth (harmonie) - FIOLETOWE ODCIENIE
+      if (waveform === 'sine' || filepath.includes('pad')) {
+        return '#AA00FF'; // Fioletowy - PAD SYNTH
+      }
+
+      // Pluck/Arp synth - TURKUSOWE ODCIENIE
+      if (waveform === 'triangle' || filepath.includes('pluck') || filepath.includes('arp')) {
+        return '#00AAFF'; // Turkusowy - PLUCK/ARP SYNTH
+      }
+
+      // Pozostałe synth
+      return '#0088AA'; // Domyślny niebieski dla synth
+    }
+
+    // FALLBACK - SZARE ODCIENIE dla nieznanych
+    return '#888888'; // Szary dla nieznanych typów
+  }, []);
+
+  // Funkcja do czyszczenia nazw ścieżek - ULEPSZONA: lepsze nazwy dla dźwięków
   const getCleanTrackName = useCallback((trackName: string): string => {
     if (!trackName) return 'Unknown Track';
 
@@ -84,9 +223,38 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     }
 
     // Kapitalizuj pierwszą literę i zamień podkreślenia/myślniki na spacje
-    const cleanName = nameWithoutExt
+    let cleanName = nameWithoutExt
       .replace(/[_-]/g, ' ')
+      .replace(/\s*\d+$/, '') // Usuń cyfry na końcu (indeksy loop)
       .trim();
+
+    // Mapuj popularne nazwy na bardziej czytelne
+    const nameMap: { [key: string]: string } = {
+      'lofi kick': 'Lo-Fi Kick',
+      'lofi snare': 'Lo-Fi Snare',
+      'lofi hat': 'Lo-Fi Hat',
+      'lo fi kick': 'Lo-Fi Kick',
+      'lo fi snare': 'Lo-Fi Snare',
+      'lo fi hat': 'Lo-Fi Hat',
+      'sine synth': 'Sine Synth',
+      'piano': 'Piano',
+      'kick': 'Kick',
+      'snare': 'Snare',
+      'hihat': 'Hi-Hat',
+      'hat': 'Hat',
+      'bass': 'Bass',
+      'lead': 'Lead',
+      'pad': 'Pad',
+      'pluck': 'Pluck'
+    };
+
+    // Sprawdź czy nazwa pasuje do mapy
+    const lowerName = cleanName.toLowerCase();
+    for (const [key, value] of Object.entries(nameMap)) {
+      if (lowerName.includes(key)) {
+        return value;
+      }
+    }
 
     return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
   }, []);
@@ -115,86 +283,108 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     };
   }, []);
 
-  // Calculate layout dimensions
+  // Calculate layout dimensions - NOWE: krótsze bloki pionowo, więcej wierszy
   const getLayoutDimensions = useCallback(() => {
     const tracks = externalGetAllTracks ? externalGetAllTracks() : getAllTracks();
     const leftPanelWidth = 200; // Standardowy rozmiar
-    // Oblicz wysokość ścieżek z adaptacyjną rezerwą na kontrolki dolne - większe tracks
-    const bottomReserve = tracks.length > 15 ? 160 : tracks.length > 8 ? 140 : 120; // Zmniejszona rezerwa
+
+    // ZWIĘKSZONA rezerwa na kontrolki dolne - żeby ostatni wiersz nie był ucinany
+    const bottomReserve = 120; // Zwiększona rezerwa na kontrolki + padding
     const availableHeight = containerSize.height - bottomReserve;
-    // Lepsze zarządzanie wysokością tracks - więcej miejsca dla każdego track
-    const trackHeight = tracks.length <= 2 ?
-      Math.min(160, Math.max(130, availableHeight / Math.max(1, tracks.length))) :
-      tracks.length <= 4 ?
-      Math.min(140, Math.max(110, availableHeight / Math.max(1, tracks.length))) :
-      tracks.length <= 6 ?
-      Math.min(120, Math.max(90, availableHeight / Math.max(1, tracks.length))) :
-      tracks.length <= 8 ?
-      Math.min(100, Math.max(80, availableHeight / Math.max(1, tracks.length))) :
-      tracks.length <= 12 ?
-      Math.min(85, Math.max(70, availableHeight / Math.max(1, tracks.length))) :
-      tracks.length <= 20 ?
-      Math.min(75, Math.max(60, availableHeight / Math.max(1, tracks.length))) :
-      Math.min(60, Math.max(50, availableHeight / Math.max(1, tracks.length)));
+
+    // DYNAMICZNE wysokości tracków - ZAWSZE WYPEŁNIAJ DOSTĘPNĄ PRZESTRZEŃ
+    const minTrackHeight = 12; // Absolutne minimum dla czytelności
+    const maxTrackHeight = 50; // Maksimum dla estetyki
+    const gapBetweenTracks = 2; // Gap między trackami
+
+    // Oblicz idealną wysokość tracka żeby wypełnić całą dostępną przestrzeń
+    const totalGaps = Math.max(0, tracks.length - 1) * gapBetweenTracks;
+    const availableForTracks = availableHeight - totalGaps;
+    const idealTrackHeight = Math.max(minTrackHeight, Math.min(maxTrackHeight, availableForTracks / Math.max(1, tracks.length)));
+
+    // Użyj idealnej wysokości - zawsze wypełnij przestrzeń!
+    const trackHeight = Math.round(idealTrackHeight);
 
     // Oblicz rzeczywistą szerokość obszaru bloków muzycznych - maksymalne wykorzystanie przestrzeni
-    // containerSize.width - leftPanelWidth - minimalne marginesy
     const timelineWidth = containerSize.width - leftPanelWidth - 16; // Bardzo małe marginesy dla maksymalnej szerokości
 
     return {
       leftPanelWidth,
       trackHeight,
       tracks,
-      totalSteps: visualSong ? visualSong.totalBars * visualSong.beatsPerBar * visualSong.stepsPerBeat : 0,
+      totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0,
       timelineWidth,
       availableHeight // Dodaj availableHeight do return
     };
   }, [visualSong, containerSize, externalGetAllTracks]);
 
-  // Get all unique tracks from the song, merging notes from loop repetitions
+  // NOWA FUNKCJA: Grupuj po NUTACH, nie po instrumentach - każda nuta = osobny track
   const getAllTracks = useCallback((): VisualTrack[] => {
     if (!visualSong) return [];
 
-    const trackMap = new Map<string, VisualTrack>();
-    const allTrackIds: string[] = [];
+
+
+    const noteTrackMap = new Map<string, VisualTrack>();
 
     for (const loop of visualSong.loops) {
       for (const track of loop.tracks) {
-        allTrackIds.push(track.id);
-        // Extract base track name (remove global step offset suffix)
-        const baseTrackId = track.id.split('_').slice(0, -1).join('_') || track.id;
+        // Grupuj wszystkie nuty z tego tracka
+        for (const note of track.notes) {
+          // KLUCZ: nuta + typ instrumentu (żeby C2 z piano było inne niż C2 z synth)
+          const noteKey = `${note.note}_${track.type}_${track.filepath || track.waveform || 'default'}`;
 
-        if (!trackMap.has(baseTrackId)) {
-          // Create new track with base ID
-          trackMap.set(baseTrackId, {
-            ...track,
-            id: baseTrackId,
-            notes: [...track.notes] // Copy notes array
-          });
-        } else {
-          // Merge notes from this loop repetition into existing track
-          const existingTrack = trackMap.get(baseTrackId)!;
-          existingTrack.notes = [...existingTrack.notes, ...track.notes];
+          if (!noteTrackMap.has(noteKey)) {
+            // Utwórz nowy track dla tej nuty
+            const uniqueBlockColor = getEnhancedTrackColor(track, noteKey); // KOLOR BLOKÓW DŹWIĘKOWYCH
+            const categoryBorderColor = getInstrumentBorderColor(track); // KOLOR KATEGORII (dla nazw)
+
+
+            noteTrackMap.set(noteKey, {
+              ...track,
+              id: noteKey,
+              name: note.note, // NAZWA = NUTA (C2, C3, A#3, itp.)
+              notes: [note], // Tylko ta jedna nuta
+              color: uniqueBlockColor, // UNIKALNY KOLOR BLOKÓW DŹWIĘKOWYCH
+              borderColor: categoryBorderColor // KOLOR KATEGORII (dla nazw tracków)
+            });
+          } else {
+            // Dodaj nutę do istniejącego track dla tej nuty
+            const existingTrack = noteTrackMap.get(noteKey)!;
+            existingTrack.notes.push(note);
+          }
         }
       }
     }
 
-    const result = Array.from(trackMap.values())
-      .filter(track => track.notes && track.notes.length > 0); // Only tracks with notes
+    const result = Array.from(noteTrackMap.values())
+      .filter(track => track.notes && track.notes.length > 0)
+      .sort((a, b) => {
+        // GRUPOWANIE WEDŁUG KATEGORII: najpierw po kolorze kategorii (borderColor), potem po nutach
+        const aBorderColor = a.borderColor || '#888888';
+        const bBorderColor = b.borderColor || '#888888';
 
-    // Debug track processing
-    console.debug('🎵 Track Processing:', {
-      totalLoops: visualSong.loops.length,
-      allTrackIds: allTrackIds,
-      uniqueBaseIds: Array.from(trackMap.keys()),
-      beforeFilter: Array.from(trackMap.values()).length,
-      afterFilter: result.length,
-      finalTracks: result.map(t => ({ id: t.id, name: t.name, notesCount: t.notes.length })),
-      pianoTracks: result.filter(t => t.name.toLowerCase().includes('piano')).map(t => ({ id: t.id, name: t.name, notesCount: t.notes.length }))
-    });
+        // 1. Sortuj po kolorze kategorii (grupuje podobne instrumenty razem)
+        if (aBorderColor !== bBorderColor) {
+          // Kolejność kategorii: czerwone (sampler), niebieskie (piano), zielone/żółte/fioletowe (synth)
+          const categoryOrder: Record<string, number> = {
+            '#FF0000': 0, '#CC0000': 1, '#FF3333': 2, '#990000': 3, '#FF6666': 4, '#AA0000': 5, // Czerwone (sampler)
+            '#0066FF': 10, // Niebieskie (piano)
+            '#00AA00': 20, '#FFAA00': 21, '#AA00FF': 22, '#00AAFF': 23, '#0088AA': 24, // Synth
+            '#888888': 99 // Nieznane
+          };
+          const aOrder = categoryOrder[aBorderColor] || 50;
+          const bOrder = categoryOrder[bBorderColor] || 50;
+          return aOrder - bOrder;
+        }
+
+        // 2. W ramach tej samej kategorii, sortuj muzycznie po nutach
+        return compareNotesMusicially(a.name, b.name);
+      });
+
+
 
     return result;
-  }, [visualSong]);
+  }, [visualSong, getEnhancedTrackColor, getInstrumentBorderColor]);
 
   // Master timeline duration - always use audio duration as source of truth
   const masterDuration = useMemo(() => {
@@ -235,27 +425,45 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     const noteStartTime = note.step * stepDuration;
     const noteEndTime = noteStartTime + (note.steps * stepDuration);
 
-    // Add small tolerance for floating point precision (5ms for better detection)
-    const tolerance = 0.005;
-    const isActive = currentTime >= (noteStartTime - tolerance) && currentTime < (noteEndTime + tolerance);
+    // Precyzyjne sprawdzenie aktywności bez tolerancji
+    const isActive = currentTime >= noteStartTime && currentTime < noteEndTime;
 
-    // Debug logging for problematic notes
-    if (isActive && Math.random() < 0.05) { // Log 5% of active notes to avoid spam
-      console.debug('🎵 Active Note:', {
-        note: note.note,
-        step: note.step,
-        steps: note.steps,
-        trackId: note.trackId,
-        noteStartTime: noteStartTime.toFixed(3),
-        noteEndTime: noteEndTime.toFixed(3),
-        currentTime: currentTime.toFixed(3),
-        stepDuration: stepDuration.toFixed(3),
-        tolerance: tolerance.toFixed(3)
-      });
-    }
+
 
     return isActive;
   }, [visualSong, currentTime, masterDuration]);
+
+  // Funkcja do łączenia sąsiadujących bloków w ciągłe segmenty
+  const mergeAdjacentNotes = useCallback((notes: any[]) => {
+    if (!notes || notes.length === 0) return [];
+
+    // Sortuj nuty według pozycji
+    const sortedNotes = [...notes].sort((a, b) => a.step - b.step);
+    const mergedBlocks: any[] = [];
+
+    let currentBlock = { ...sortedNotes[0] };
+
+    for (let i = 1; i < sortedNotes.length; i++) {
+      const note = sortedNotes[i];
+      const currentEnd = currentBlock.step + currentBlock.steps;
+
+      // Jeśli nuta jest bezpośrednio po poprzedniej (lub się nakłada), połącz je
+      if (note.step <= currentEnd + 2) { // +2 pozwala na większe przerwy i lepsze łączenie
+        currentBlock.steps = Math.max(currentEnd, note.step + note.steps) - currentBlock.step;
+        currentBlock.mergedNotes = currentBlock.mergedNotes || [currentBlock];
+        currentBlock.mergedNotes.push(note);
+      } else {
+        // Dodaj poprzedni blok i zacznij nowy
+        mergedBlocks.push(currentBlock);
+        currentBlock = { ...note };
+      }
+    }
+
+    // Dodaj ostatni blok
+    mergedBlocks.push(currentBlock);
+
+    return mergedBlocks;
+  }, []);
 
   // Handle timeline click for seeking - use actual timeline width
   const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -324,9 +532,9 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
       setSmoothProgress(prev => {
         const diff = targetProgressPercentage - prev;
 
-        // Use exponential smoothing for fluid animation
+        // Use exponential smoothing for fluid animation with better responsiveness
         const smoothingFactor = Math.min(1, deltaTime / 16.67); // 60 FPS target
-        const interpolationSpeed = 0.15; // Adjust for smoothness vs responsiveness
+        const interpolationSpeed = 0.25; // Zwiększona responsywność dla lepszej synchronizacji
 
         return prev + (diff * interpolationSpeed * smoothingFactor);
       });
@@ -353,54 +561,6 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
 
 
-  // Debug logging for synchronization monitoring
-  useEffect(() => {
-    if (!isFinite(masterDuration) || !isFinite(currentTime)) {
-      console.warn('LoopmakerVisualizer: Invalid time values', {
-        duration,
-        masterDuration,
-        currentTime,
-        visualSongDuration: visualSong?.duration
-      });
-    }
-
-    // Optimized debug logging with throttling
-    if (isPlaying && Math.floor(currentTime) !== Math.floor(currentTime - 0.1)) {
-      const totalSteps = visualSong?.totalBars * visualSong?.beatsPerBar * visualSong?.stepsPerBeat || 0;
-      const currentStep = totalSteps > 0 ? (currentTime / masterDuration) * totalSteps : 0;
-
-      // Count active notes for debugging (throttled)
-      const activeNotesCount = getAllTracks().reduce((count, track) => {
-        return count + track.notes.filter(note => isNoteActive(note)).length;
-      }, 0);
-
-      // Sample a few notes for position debugging
-      const sampleNotes = getAllTracks().slice(0, 2).flatMap(track =>
-        track.notes.slice(0, 3).map(note => ({
-          note: note.note,
-          step: note.step,
-          trackId: note.trackId,
-          startPercent: ((note.step / totalSteps) * 100).toFixed(1),
-          isActive: isNoteActive(note)
-        }))
-      );
-
-      console.debug('🎵 Smooth Sync:', {
-        time: currentTime.toFixed(3),
-        masterDuration: masterDuration.toFixed(3),
-        calculatedDuration: visualSong?.duration.toFixed(3) || 'N/A',
-        durationMismatch: masterDuration !== (visualSong?.duration || 0),
-        step: currentStep.toFixed(2),
-        smoothProgress: smoothProgress.toFixed(2) + '%',
-        targetProgress: targetProgressPercentage.toFixed(2) + '%',
-        activeNotes: activeNotesCount,
-        playheadStep: currentStep.toFixed(1),
-        playheadPosition: ((progressPercentage / 100) * Math.max(600, timelineWidth) - 8).toFixed(1) + 'px',
-        timelineSync: 'Direct (no scaling)',
-        sampleNotes: sampleNotes.slice(0, 3) // Show first 3 notes
-      });
-    }
-  }, [masterDuration, currentTime, duration, visualSong, isPlaying, smoothProgress, targetProgressPercentage, timelineScale]);
 
   // Render the new HTML-based visualizer
   if (!visualSong) {
@@ -452,7 +612,7 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
       {/* Main Panel */}
       <div
-        className="relative h-full backdrop-blur-lg border border-white/10 rounded-3xl p-2 pb-4 flex flex-col gap-2"
+        className="relative h-full backdrop-blur-lg border border-white/10 rounded-3xl p-1 pb-2 flex flex-col gap-1"
         style={{
           background: colors.panel,
           backdropFilter: 'blur(20px)'
@@ -460,16 +620,16 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
       >
 
 
-        {/* Tracks Visualization Container - Ograniczona wysokość */}
-        <div className="relative flex-1 flex flex-col overflow-hidden">
-          {/* Tracks Container - Kontrolowana wysokość */}
+        {/* Tracks Visualization Container - ZAWSZE WYPEŁNIJ PRZESTRZEŃ */}
+        <div className="relative flex-1 flex flex-col overflow-hidden min-h-0">
+          {/* Tracks Container - NOWE: maksymalne wykorzystanie przestrzeni */}
           <div
-            className="tracks-container flex flex-col gap-3 relative"
+            className="tracks-container flex flex-col gap-0.5 relative flex-1" // Ultra zmniejszony gap + wypełnij przestrzeń
             style={{
               paddingLeft: `${leftPanelWidth}px`,
-              height: `${Math.min(tracks.length * (trackHeight + 16), availableHeight + 60)}px`, // Więcej miejsca na tracks
-              maxHeight: tracks.length > 6 ? `${availableHeight + 60}px` : 'none', // Wcześniejszy scroll z większą przestrzenią
-              overflowY: tracks.length > 6 ? 'auto' : 'visible'
+              height: `${availableHeight}px`, // ZAWSZE WYPEŁNIJ CAŁĄ DOSTĘPNĄ PRZESTRZEŃ
+              maxHeight: `${availableHeight}px`,
+              overflowY: 'visible' // NIGDY SCROLL - zawsze wypełnij przestrzeń
             }}
           >
 
@@ -479,40 +639,62 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                 className="track-hover flex items-center relative transition-all duration-300 rounded-lg"
                 style={{ height: `${trackHeight}px` }}
               >
-                {/* Track Label */}
+                {/* Track Label - ZMNIEJSZONE: mniejsze etykiety żeby się nie nakładały */}
                 <div
-                  className="absolute flex items-center gap-3 px-3 py-2 backdrop-blur-sm rounded-lg"
+                  className="absolute flex items-center gap-1 px-1 py-0.5 backdrop-blur-sm rounded-md"
                   style={{
                     left: `-${leftPanelWidth}px`,
-                    width: `${leftPanelWidth - 10}px`,
+                    width: `${leftPanelWidth - 8}px`,
+                    height: `${Math.min(trackHeight - 2, 28)}px`, // Kompaktowa wysokość
                     background: colors.trackBg,
-                    border: `1px solid ${colors.trackBorder}`
+                    border: `1px solid ${(track as any).borderColor || colors.trackBorder}`, // Cieńsze obramowanie
+                    borderLeft: `2px solid ${(track as any).borderColor || colors.trackBorder}`, // Mniejszy akcent po lewej
+                    fontSize: '11px' // Mniejszy font
                   }}
                 >
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                     style={{
-                      backgroundColor: track.color,
-                      boxShadow: `0 0 6px ${track.color}`
+                      backgroundColor: (track as any).borderColor || track.color, // KOLOR KATEGORII (dla nazw tracków)
+                      boxShadow: `0 0 3px ${(track as any).borderColor || track.color}`,
+                      border: `1px solid ${(track as any).borderColor || track.color}` // Obramowanie = kolor kategorii
                     }}
                   />
                   <span
-                    className="text-sm font-medium flex-1 truncate"
+                    className="text-xs font-medium flex-1 truncate"
                     style={{
-                      color: track.mute ? '#666666' : colors.text
+                      color: track.mute ? '#666666' : colors.text,
+                      lineHeight: '1.1',
+                      fontSize: '10px'
                     }}
                   >
-                    {getCleanTrackName(track.name)}
+                    {track.name}
+                  </span>
+                  {/* Kategoria instrumentu jako bardzo mała etykieta */}
+                  <span
+                    className="text-xs px-0.5 py-0.5 rounded-full flex-shrink-0"
+                    style={{
+                      background: `${(track as any).borderColor || colors.trackBorder}15`,
+                      color: (track as any).borderColor || colors.trackBorder,
+                      fontSize: '8px',
+                      lineHeight: '1',
+                      minWidth: '14px',
+                      textAlign: 'center'
+                    }}
+                    title={(track as any).category || track.type}
+                  >
+                    {((track as any).category || track.type)?.charAt(0).toUpperCase()}
                   </span>
                   {track.mute && (
                     <span
-                      className="text-xs font-semibold px-1 py-0.5 rounded"
+                      className="text-xs font-semibold px-1 py-0.5 rounded flex-shrink-0"
                       style={{
                         color: colors.tertiary,
-                        background: 'rgba(255, 0, 128, 0.2)'
+                        background: 'rgba(255, 0, 128, 0.2)',
+                        fontSize: '9px'
                       }}
                     >
-                      MUTED
+                      M
                     </span>
                   )}
                 </div>
@@ -542,88 +724,85 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                     }}
                   />
 
-                  {/* Note Blocks z precyzyjną synchronizacją i timeline scaling */}
-                  {track.notes.map((note, noteIndex) => {
-                    const totalSteps = visualSong.totalBars * visualSong.beatsPerBar * visualSong.stepsPerBeat;
+                  {/* Note Blocks - NOWE: z połączonymi sąsiadującymi blokami */}
+                  {mergeAdjacentNotes(track.notes).map((block: any, blockIndex: number) => {
+                    const totalSteps = (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4);
 
                     // Calculate positions without scaling for better visual consistency
-                    const rawStartPercent = (note.step / totalSteps) * 100;
-                    const rawWidthPercent = (note.steps / totalSteps) * 100;
+                    const rawStartPercent = totalSteps > 0 ? (block.step / totalSteps) * 100 : 0;
+                    const rawWidthPercent = totalSteps > 0 ? (block.steps / totalSteps) * 100 : 1;
 
                     // Use raw positions for consistent visual layout
                     const startPercent = Math.max(0, Math.min(100, rawStartPercent));
                     const widthPercent = Math.max(1.0, rawWidthPercent); // Minimum 1% width for visibility
 
-                    const isActive = isNoteActive(note);
+                    // Sprawdź czy którakolwiek z nut w bloku jest aktywna
+                    const isActive = block.mergedNotes ?
+                      block.mergedNotes.some((note: any) => isNoteActive(note)) :
+                      isNoteActive(block);
 
-                    // More precise upcoming calculation using master timeline with scaling
-                    const noteStartTime = (note.step / totalSteps) * masterDuration;
-                    const lookAheadTime = (2 / totalSteps) * masterDuration; // 2 steps ahead
-                    const isUpcoming = currentTime < noteStartTime &&
-                                      currentTime >= (noteStartTime - lookAheadTime);
 
-                    // Debug logging for first few notes to check positioning
-                    if (index === 0 && noteIndex < 3 && Math.random() < 0.05) {
-                      console.debug('🎵 Note Position Debug:', {
-                        trackName: track.name,
-                        note: note.note,
-                        step: note.step,
-                        totalSteps,
-                        rawStartPercent: ((note.step / totalSteps) * 100).toFixed(1),
-                        finalStartPercent: startPercent.toFixed(1),
-                        isActive,
-                        noteStartTime: noteStartTime.toFixed(3),
-                        currentTime: currentTime.toFixed(3)
-                      });
-                    }
+
+                    // Sprawdź czy blok jest aktywny - to wystarczy dla animacji
+
+
 
                     return (
                       <div
-                        key={`${note.step}-${noteIndex}`}
-                        className={`absolute top-1 bottom-1 rounded-lg cursor-pointer transition-all duration-200 overflow-hidden ${ // Mniejsze marginesy = większe bloki
+                        key={`${block.step}-${blockIndex}`}
+                        className={`absolute top-1 bottom-1 rounded-md cursor-pointer transition-all duration-75 overflow-hidden ${ // Szybsze przejścia dla lepszej synchronizacji
                           isActive ? 'z-10' : ''
                         }`}
                         style={{
                           left: `${startPercent}%`,
                           width: `${Math.max(widthPercent, 1.5)}%`, // Większe minimalne bloki dla lepszej widoczności
-                          background: isActive
-                            ? `linear-gradient(135deg, ${colors.noteActive}, ${colors.primary})`
-                            : track.mute
-                              ? 'rgba(100, 100, 100, 0.3)'
-                              : `linear-gradient(135deg, ${colors.noteInactive}, rgba(111, 0, 255, 0.3))`,
-                          border: isActive
-                            ? `2px solid ${colors.noteActive}`
-                            : `1px solid ${track.mute ? '#555' : colors.noteInactive}`,
+                          // AKTYWNE = wypełnione tym samym kolorem co obramowanie, NIEAKTYWNE = pusty środek
+                          background: track.mute
+                            ? 'rgba(100, 100, 100, 0.4)'
+                            : isActive
+                              ? track.color // AKTYWNE: wypełnione tym samym kolorem co obramowanie
+                              : 'transparent', // NIEAKTYWNE: pusty środek
+                          border: `2px solid ${track.mute ? '#555' : track.color}`, // Obramowanie = unikalny kolor bloków dźwiękowych
                           boxShadow: isActive
-                            ? `0 0 12px ${colors.noteActive}, 0 0 24px rgba(0, 255, 136, 0.3)`
-                            : isUpcoming
-                              ? `0 0 6px ${colors.noteInactive}`
-                              : 'none',
-                          transform: isActive ? 'scale(1.02)' : 'scale(1)',
-                          opacity: track.mute ? 0.4 : 1,
-                          filter: track.mute ? 'grayscale(0.7)' : 'none'
+                            ? `0 0 20px ${track.color}, 0 0 40px ${track.color}66` // ŚWIATEŁKO w kolorze bloków dźwiękowych
+                            : `0 2px 4px rgba(0,0,0,0.2)`, // Subtelny cień zawsze
+                          transform: isActive ? 'scale(1.05)' : 'scale(1)', // Lekkie powiększenie gdy aktywne
+                          opacity: track.mute ? 0.4 : 1, // Pełna widoczność
+                          filter: track.mute ? 'grayscale(0.7)' : 'none',
+                          transition: 'all 0.05s ease-out' // Bardzo szybkie przejścia dla precyzyjnej synchronizacji
                         }}
-                        title={`${getCleanTrackName(track.name)} - ${note.note || 'Note'} (Step ${note.step})`}
+                        title={`${getCleanTrackName(track.name)} - ${block.note || 'Block'} (Step ${block.step}, Length: ${block.steps}${block.mergedNotes ? `, Merged: ${block.mergedNotes.length}` : ''})`}
                       >
-                        {/* Note content with gradient */}
-                        <div
-                          className="absolute inset-0 rounded-lg"
-                          style={{
-                            background: isActive
-                              ? `linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent)`
-                              : 'inherit'
-                          }}
-                        />
-
-                        {/* Active shimmer effect */}
-                        {isActive && (
+                        {/* Subtelny gradient wewnętrzny tylko dla nieaktywnych bloków */}
+                        {!isActive && (
                           <div
-                            className="absolute inset-0 rounded-lg"
+                            className="absolute inset-0 rounded-md"
                             style={{
-                              background: `linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)`,
-                              animation: 'shimmer 1.5s ease-in-out infinite'
+                              background: `linear-gradient(45deg, transparent, ${track.color}15, transparent)` // Bardzo subtelny gradient dla nieaktywnych
                             }}
                           />
+                        )}
+
+                        {/* ŚWIATEŁKO WOKÓŁ dla aktywnych bloków */}
+                        {isActive && (
+                          <>
+                            {/* Pulsujące światełko */}
+                            <div
+                              className="absolute inset-0 rounded-md"
+                              style={{
+                                background: `radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%)`,
+                                animation: 'pulse 1.5s ease-in-out infinite'
+                              }}
+                            />
+                            {/* Delikatny shimmer */}
+                            <div
+                              className="absolute inset-0 rounded-md"
+                              style={{
+                                background: `linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent)`,
+                                animation: 'shimmer 2s ease-in-out infinite'
+                              }}
+                            />
+                          </>
                         )}
                       </div>
                     );
@@ -634,63 +813,10 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
           </div>
         </div>
 
-        {/* Funkcjonalny pasek postępu na dole */}
-        <div className="mt-6 space-y-4">
+        {/* Interaktywny pasek postępu - BEZPOŚREDNIO pod głównym panelem */}
+        <div className="mt-1 space-y-2">
 
-          {/* Active Tracks Display - Wycentrowane */}
-          {onPlayPause && externalGetAllTracks && externalHasActiveNotes && externalGetCleanTrackName && externalGetAllTracks().length > 0 && (
-            <div className="mb-1" style={{ paddingLeft: `${leftPanelWidth + 16}px` }}>
-              <div className="flex items-center justify-center mb-3">
-                <div className="text-white/70 text-sm font-medium">
-                  {externalGetAllTracks().length} tracks • {externalGetAllTracks().reduce((sum: number, track: any) => sum + (track.notes?.length || 0), 0)} notes
-                </div>
-              </div>
-              <div className={`flex flex-wrap justify-center gap-3 max-w-4xl mx-auto ${
-                externalGetAllTracks().length <= 4 ? 'justify-center' :
-                externalGetAllTracks().length <= 6 ? 'justify-center' :
-                externalGetAllTracks().length <= 8 ? 'justify-center' : 'justify-center'
-              }`}>
-                {externalGetAllTracks().map((track: any) => {
-                  const trackIsActive = externalHasActiveNotes(track);
-                  return (
-                    <motion.div
-                      key={track.id}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-center backdrop-blur-sm border ${
-                        trackIsActive ? 'bg-white/15 border-white/20 shadow-lg' : 'bg-white/5 border-white/10'
-                      }`}
-                      animate={{
-                        opacity: trackIsActive ? 1 : 0.7,
-                        scale: trackIsActive ? 1.02 : 1
-                      }}
-                      transition={{
-                        duration: 0.2,
-                        ease: "easeInOut"
-                      }}
-                      layout
-                    >
-                      <motion.div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: track.color }}
-                        animate={{
-                          scale: trackIsActive ? 1.2 : 1,
-                          boxShadow: trackIsActive ? `0 0 8px ${track.color}` : `0 0 2px ${track.color}`
-                        }}
-                        transition={{
-                          duration: 0.2,
-                          ease: "easeInOut"
-                        }}
-                      />
-                      <span className="text-white text-sm font-medium truncate flex-1">
-                        {externalGetCleanTrackName(track.name)}
-                      </span>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Interaktywny pasek postępu */}
+          {/* Pasek postępu - przeniesiony wyżej */}
           <div className="relative" style={{ paddingLeft: `${leftPanelWidth}px` }}>
             <div
               className="progress-bar h-3 rounded-full cursor-pointer relative overflow-hidden transition-transform duration-200 shadow-lg"
@@ -738,41 +864,56 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
               />
             </div>
 
-            {/* Markery czasu - zsynchronizowane z timeline */}
+            {/* Markery czasu i informacje o trackach */}
             <div className="relative" style={{ paddingLeft: `${leftPanelWidth}px` }}>
-              <div
-                className="flex justify-between mt-2 text-xs"
-                style={{
-                  color: colors.textSecondary,
-                  width: `${Math.max(600, timelineWidth)}px`, // Dokładna szerokość jak timeline
-                  maxWidth: '100%' // Nie przekraczaj kontenera
-                }}
-              >
-              {[0, 0.25, 0.5, 0.75, 1].map((position) => {
-                const time = position * masterDuration;
-                return (
-                  <span key={position} className="font-mono">
-                    {isFinite(time) ?
-                      `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}` :
-                      '0:00'
-                    }
-                  </span>
-                );
-              })}
+              <div className="flex justify-between items-center mt-1">
+                {/* Markery czasu po lewej */}
+                <div
+                  className="flex justify-between text-xs"
+                  style={{
+                    color: colors.textSecondary,
+                    width: `${Math.max(600, timelineWidth)}px`, // Dokładna szerokość jak timeline
+                    maxWidth: '70%' // Zostaw miejsce na informacje po prawej
+                  }}
+                >
+                {[0, 0.25, 0.5, 0.75, 1].map((position) => {
+                  const time = position * masterDuration;
+                  return (
+                    <span key={position} className="font-mono">
+                      {isFinite(time) ?
+                        `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}` :
+                        '0:00'
+                      }
+                    </span>
+                  );
+                })}
+                </div>
+
+                {/* Informacje o trackach po prawej */}
+                <div className="flex items-center gap-3 text-xs" style={{ color: colors.textSecondary }}>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.secondary }}></div>
+                    <span className="font-medium">{tracks.length} tracks</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }}></div>
+                    <span className="font-medium">{tracks.reduce((sum, track) => sum + (track.notes?.length || 0), 0)} notes</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Modern Control Panel - Stylowy design - ZAWSZE WIDOCZNY */}
           {onPlayPause && (
-            <div className="mt-2 flex-shrink-0" style={{
-              paddingLeft: `${leftPanelWidth + 16}px`,
-              minHeight: '80px' // Minimalna wysokość dla kontrolek
+            <div className="mt-1 flex-shrink-0" style={{
+              paddingLeft: `${leftPanelWidth + 8}px`,
+              minHeight: '40px' // Kompaktowa wysokość dla kontrolek
             }}>
               {/* Control Row - Volume po lewej, Play/Stop wyśrodkowany */}
               <div className="flex items-center justify-between w-full">
                 {/* Volume Control - Kompaktowy design */}
-                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
+                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1 backdrop-blur-sm border border-white/10">
                   <svg className="w-4 h-4 text-white/60" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
                   </svg>
@@ -810,9 +951,9 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                 </div>
 
                 {/* Play/Stop Button with Time - Kompaktowy design */}
-                <div className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-1.5 backdrop-blur-sm border border-white/10">
+                <div className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1 backdrop-blur-sm border border-white/10">
                   {/* Current Time */}
-                  <span className="text-white/70 text-sm font-mono min-w-[35px]">
+                  <span className="text-white/70 text-xs font-mono min-w-[30px]">
                     {isFinite(currentTime) ?
                       `${Math.floor(currentTime / 60)}:${Math.floor(currentTime % 60).toString().padStart(2, '0')}` :
                       '0:00'
@@ -822,23 +963,23 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                   {/* Play/Stop Button - Kompaktowy */}
                   <motion.button
                     onClick={onPlayPause}
-                    className="w-8 h-8 bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 rounded-full flex items-center justify-center text-white transition-all shadow-md"
+                    className="w-6 h-6 bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 rounded-full flex items-center justify-center text-white transition-all shadow-md"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
                     {isPlaying ? (
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                       </svg>
                     ) : (
-                      <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z"/>
                       </svg>
                     )}
                   </motion.button>
 
                   {/* Total Duration */}
-                  <span className="text-white/50 text-sm font-mono min-w-[35px]">
+                  <span className="text-white/50 text-xs font-mono min-w-[30px]">
                     {masterDuration > 0 ?
                       `${Math.floor(masterDuration / 60)}:${Math.floor(masterDuration % 60).toString().padStart(2, '0')}` :
                       '0:00'
@@ -854,8 +995,8 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
         </div>
       </div>
 
-      {/* CSS Styles */}
-      <style jsx="true" global="true">{`
+      {/* CSS Styles - converted to regular style tag */}
+      <style>{`
         @keyframes float {
           0%, 100% {
             transform: translateY(100vh) scale(0);
@@ -882,6 +1023,17 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
           }
         }
 
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(1.05);
+          }
+        }
+
         @keyframes shimmer {
           0% {
             transform: translateX(-100%);
@@ -897,32 +1049,32 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
         }
 
         /* Scrollbar styling */
-        :global(.tracks-container::-webkit-scrollbar) {
+        .tracks-container::-webkit-scrollbar {
           width: 4px;
         }
 
-        :global(.tracks-container::-webkit-scrollbar-track) {
+        .tracks-container::-webkit-scrollbar-track {
           background: rgba(111, 0, 255, 0.1);
           border-radius: 2px;
         }
 
-        :global(.tracks-container::-webkit-scrollbar-thumb) {
+        .tracks-container::-webkit-scrollbar-thumb {
           background: rgba(0, 255, 136, 0.4);
           border-radius: 2px;
         }
 
-        :global(.tracks-container::-webkit-scrollbar-thumb:hover) {
+        .tracks-container::-webkit-scrollbar-thumb:hover {
           background: rgba(0, 255, 136, 0.6);
         }
 
         /* Hover effects */
-        :global(.track-hover:hover) {
+        .track-hover:hover {
           background: rgba(111, 0, 255, 0.1) !important;
           transform: translateX(2px);
         }
 
         /* Progress bar hover */
-        :global(.progress-bar:hover) {
+        .progress-bar:hover {
           transform: scaleY(1.2);
         }
       `}</style>

@@ -22,9 +22,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const [isTapping, setIsTapping] = useState(false);
 
-  useEffect(() => {
-    onChange?.(tempo);
-  }, [tempo, onChange]);
+
 
   const handleInputChange = (value: string) => {
     setInputValue(value);
@@ -41,6 +39,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
       setInputValue(tempo.toString());
     } else {
       setTempo(numValue);
+      onChange?.(numValue);
     }
   };
 
@@ -48,11 +47,13 @@ const TempoInput: React.FC<TempoInputProps> = ({
     const newTempo = Math.max(min, Math.min(max, tempo + delta));
     setTempo(newTempo);
     setInputValue(newTempo.toString());
+    onChange?.(newTempo);
   };
 
   const resetTempo = () => {
     setTempo(defaultValue);
     setInputValue(defaultValue.toString());
+    onChange?.(defaultValue);
   };
 
   const handleTapTempo = () => {
@@ -73,6 +74,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
       if (calculatedBPM >= min && calculatedBPM <= max) {
         setTempo(calculatedBPM);
         setInputValue(calculatedBPM.toString());
+        onChange?.(calculatedBPM);
       }
     }
 
@@ -200,6 +202,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
               const newTempo = parseInt(e.target.value);
               setTempo(newTempo);
               setInputValue(newTempo.toString());
+              onChange?.(newTempo);
             }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
@@ -245,6 +248,7 @@ const TempoInput: React.FC<TempoInputProps> = ({
               } else {
                 setTempo(preset.value);
                 setInputValue(preset.value.toString());
+                onChange?.(preset.value);
               }
             }}
             className={`p-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${

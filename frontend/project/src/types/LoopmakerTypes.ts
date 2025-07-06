@@ -80,6 +80,8 @@ export interface VisualTrack {
   id: string;
   name: string;
   color: string;
+  borderColor?: string; // Kolor obramowania dla grupy instrumentów
+  category?: string; // Kategoria instrumentu (Piano, Kick/Bass Drum, itd.)
   type: 'synth' | 'sampler' | 'piano';
   notes: VisualNote[];
   gain: number;

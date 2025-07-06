@@ -4,6 +4,22 @@ import { Keyboard, Loader2 } from 'lucide-react';
 import LengthSlider from './LengthSlider';
 import AdvancedPanel from './AdvancedPanel';
 
+interface AdvancedSetting {
+  enabled: boolean;
+  value: any;
+}
+
+interface AdvancedSettings {
+  style: AdvancedSetting;
+  tempo: AdvancedSetting;
+  bass: AdvancedSetting;
+  drums: AdvancedSetting;
+  melody: AdvancedSetting;
+  warmth: AdvancedSetting;
+  brightness: AdvancedSetting;
+  instruments: AdvancedSetting;
+}
+
 interface PromptSectionProps {
   prompt: string;
   setPrompt: (value: string) => void;
@@ -14,6 +30,10 @@ interface PromptSectionProps {
   onToggleAdvanced: () => void;
   onClear?: () => void;
   onRandom?: () => void;
+  advancedSettings: AdvancedSettings;
+  setAdvancedSettings: (settings: AdvancedSettings) => void;
+  duration: number;
+  setDuration: (duration: number) => void;
 }
 
 const PromptSection: React.FC<PromptSectionProps> = ({
@@ -25,7 +45,11 @@ const PromptSection: React.FC<PromptSectionProps> = ({
   showAdvanced,
   onToggleAdvanced,
   onClear,
-  onRandom
+  onRandom,
+  advancedSettings,
+  setAdvancedSettings,
+  duration,
+  setDuration
 }) => {
   const randomPrompts = [
     "Chill lo-fi with warm piano and vinyl crackle",
@@ -90,7 +114,12 @@ const PromptSection: React.FC<PromptSectionProps> = ({
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.8 }}
         >
-          <LengthSlider />
+          <LengthSlider
+            defaultValue={duration}
+            onChange={setDuration}
+            min={10}
+            max={300}
+          />
         </motion.div>
 
         {/* Advanced Settings*/}
@@ -99,9 +128,11 @@ const PromptSection: React.FC<PromptSectionProps> = ({
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.8 }}
         >
-          <AdvancedPanel 
-            isOpen={showAdvanced} 
-            onToggle={onToggleAdvanced} 
+          <AdvancedPanel
+            isOpen={showAdvanced}
+            onToggle={onToggleAdvanced}
+            advancedSettings={advancedSettings}
+            setAdvancedSettings={setAdvancedSettings}
           />
         </motion.div>
 
