@@ -135,12 +135,8 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   }, [audioPlayerRef]);
 
   const handleSeek = useCallback((time: number) => {
-    console.log('🎯 EnhancedMusicCanvas handleSeek called with time:', time.toFixed(3));
     if (audioPlayerRef) {
-      console.log('🎯 Calling audioPlayerRef.seekTo');
       audioPlayerRef.seekTo(time);
-    } else {
-      console.warn('🎯 No audioPlayerRef available');
     }
   }, [audioPlayerRef]);
 
@@ -277,9 +273,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
           setParser(newParser);
         }
 
-        console.log('Loaded song data:', songData);
-        console.log('Total duration:', songData.duration, 'seconds');
-        console.log('Total tracks:', songData.loops.flatMap(l => l.tracks).length);
+
 
         // Set duration from song data if audio duration is not available
         if (!isFinite(duration) || duration <= 0) {
@@ -318,7 +312,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   useEffect(() => {
     const testAndSetAudioSrc = async () => {
       try {
-        console.log('🎵 Testing audio file accessibility:', audioSrc);
+
 
         // If it's a backend URL, test if it's accessible
         if (audioSrc.includes('localhost:8000') || audioSrc.includes('http')) {
@@ -326,12 +320,12 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
             // Try HEAD request first
             const response = await fetch(audioSrc, { method: 'HEAD' });
             if (response.ok) {
-              console.log('✅ Backend audio file is accessible via HEAD:', audioSrc);
+
               setEffectiveAudioSrc(audioSrc);
               return;
             }
           } catch (headError) {
-            console.log('HEAD request failed, trying GET with range:', headError);
+
           }
 
           // If HEAD fails, try a range request to test accessibility
@@ -341,12 +335,12 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
               headers: { 'Range': 'bytes=0-1' }
             });
             if (response.ok || response.status === 206) {
-              console.log('✅ Backend audio file is accessible via range request:', audioSrc);
+
               setEffectiveAudioSrc(audioSrc);
               return;
             }
           } catch (rangeError) {
-            console.log('Range request also failed:', rangeError);
+
           }
 
           // If both fail, throw error to trigger fallback
@@ -476,18 +470,13 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
               visualSong={visualSong}
               currentTime={currentTime}
               isPlaying={isPlaying}
-              parser={parser}
-              type="pianoRoll"
               className="h-full"
               onSeek={handleSeek}
               duration={duration}
               volume={volume}
-              bpm={bpm}
               onPlayPause={togglePlayPause}
               onVolumeChange={updateVolume}
-              externalGetCleanTrackName={getCleanTrackName}
-              externalGetAllTracks={getAllTracks}
-              externalHasActiveNotes={hasActiveNotes}
+
             />
           </div>
 

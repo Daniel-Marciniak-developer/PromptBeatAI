@@ -296,9 +296,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
     // Set initial volume only once when component mounts
     audio.volume = 0.8; // Fixed initial volume
-    console.log('🎵 Initial volume set to:', audio.volume);
-    console.log('🎵 Audio muted:', audio.muted);
-    console.log('🎵 Audio src:', audio.src);
+
   }, []); // Empty dependency array - runs only once
 
   // Audio event handlers
