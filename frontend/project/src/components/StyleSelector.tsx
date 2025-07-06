@@ -9,8 +9,21 @@ import {
   Radio
 } from 'lucide-react';
 
-const StyleSelector: React.FC = () => {
-  const [selectedStyle, setSelectedStyle] = useState('Lo-fi');
+interface StyleSelectorProps {
+  selectedStyle?: string;
+  onStyleChange?: (style: string) => void;
+}
+
+const StyleSelector: React.FC<StyleSelectorProps> = ({
+  selectedStyle: propSelectedStyle = 'Lo-fi',
+  onStyleChange
+}) => {
+  const [selectedStyle, setSelectedStyle] = useState(propSelectedStyle);
+
+  const handleStyleChange = (style: string) => {
+    setSelectedStyle(style);
+    onStyleChange?.(style);
+  };
   
   const styles = [
     {
@@ -62,7 +75,7 @@ const StyleSelector: React.FC = () => {
       {styles.map((style) => (
         <motion.button
           key={style.name}
-          onClick={() => setSelectedStyle(style.name)}
+          onClick={() => handleStyleChange(style.name)}
           className={`relative p-4 rounded-xl border-2 transition-all ${
             selectedStyle === style.name
               ? 'border-accent-from bg-white/10'
