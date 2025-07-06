@@ -29,18 +29,223 @@ export class LoopmakerParser {
   }
 
   public parseToVisualSong(): VisualSong {
-    const loops = this.parseLoops();
+    // NOWE: Grupuj wszystkie hity według unikalnych kombinacji instrument+nuta
+    const groupedTracks = this.groupTracksByInstrumentAndNote();
     const totalDuration = this.calculateTotalDuration();
     const totalBars = this.calculateTotalBars();
+
+    // Stwórz jeden loop z pogrupowanymi trackami
+    const visualLoop: VisualLoop = {
+      id: 'grouped_tracks',
+      startTime: 0,
+      duration: totalDuration,
+      tracks: groupedTracks,
+      gain: 1.0,
+      mute: false
+    };
 
     return {
       bpm: this.song.bpm,
       duration: totalDuration,
-      loops,
+      loops: [visualLoop], // Jeden loop z wszystkimi pogrupowanymi trackami
       totalBars,
       beatsPerBar: this.beatsPerBar,
       stepsPerBeat: this.stepsPerBeat
     };
+  }
+
+  // NAPRAWIONA FUNKCJA: Grupuj wszystkie hity według unikalnych NUT (nie instrument+nuta!)
+  private groupTracksByInstrumentAndNote(): VisualTrack[] {
+    const trackGroups = new Map<string, {
+      note: string;
+      hits: Array<{ hit: Hit; startTime: number; globalStep: number; generator: Generator; originalTrackId: string }>;
+    }>();
+
+    let globalStepOffset = 0;
+
+    // Przejdź przez wszystkie loopy i zbierz wszystkie hity
+    for (const loopContext of this.song.loops_in_context) {
+      const loop = loopContext.loop;
+      const repeatTimes = loopContext.repeat_times || 1;
+      const loopDuration = this.calculateLoopDuration(loop);
+      const stepsPerLoop = loop.bars * this.beatsPerBar * this.stepsPerBeat;
+
+      for (let repeat = 0; repeat < repeatTimes; repeat++) {
+        const currentTime = globalStepOffset * this.secondsPerStep;
+
+        // Przejdź przez wszystkie tracki w tym loopie
+        for (const [trackId, track] of Object.entries(loop.tracks)) {
+          // Przejdź przez wszystkie hity w tym tracku
+          for (const hit of track.hits) {
+            // KLUCZ TO NUTA + KATEGORIA INSTRUMENTU - każda kombinacja ma swój wiersz!
+            const category = this.determineInstrumentCategory(track.gen, trackId);
+            const uniqueKey = `${hit.note}_${category}`;
+
+            // Jeśli grupa nie istnieje, stwórz ją
+            if (!trackGroups.has(uniqueKey)) {
+              trackGroups.set(uniqueKey, {
+                note: hit.note,
+                hits: []
+              });
+            }
+
+            // Dodaj hit do grupy
+            const group = trackGroups.get(uniqueKey)!;
+            group.hits.push({
+              hit,
+              startTime: currentTime,
+              globalStep: hit.step + globalStepOffset,
+              generator: track.gen,
+              originalTrackId: trackId
+            });
+          }
+        }
+
+        globalStepOffset += stepsPerLoop;
+      }
+    }
+
+    // Konwertuj grupy na VisualTrack
+    const visualTracks: VisualTrack[] = [];
+
+    // Sortuj grupy według nut (C, C#, D, D#, E, F, F#, G, G#, A, A#, B) i oktaw
+    const sortedGroups = Array.from(trackGroups.entries()).sort(([a], [b]) => {
+      return this.compareNotes(a, b);
+    });
+
+    for (const [noteKey, group] of sortedGroups) {
+      // Sortuj hity według globalStep
+      group.hits.sort((a, b) => a.globalStep - b.globalStep);
+
+      // Połącz sąsiadujące bloki w ciągłe segmenty
+      const mergedNotes = this.mergeAdjacentNotes(group.hits, noteKey);
+
+      // Wybierz pierwszy generator dla koloru (wszystkie hity tej nuty będą miały ten sam kolor)
+      const firstGenerator = group.hits[0].generator;
+
+      // Określ kategorię instrumentu dla obramowania
+      const category = this.determineInstrumentCategory(firstGenerator, group.hits[0].originalTrackId);
+      const borderColor = this.getCategoryBorderColor(category);
+
+      // Stwórz VisualTrack dla tej grupy (jedna nuta = jeden wiersz)
+      const visualTrack: VisualTrack = {
+        id: noteKey,
+        name: group.note, // Pełna nazwa nuty z oktawą
+        color: this.calculateNoteTrackColor(group.note), // Kolor bazowany na nucie
+        borderColor: borderColor, // Kolor obramowania kategorii
+        category: category, // Kategoria instrumentu
+        type: firstGenerator.type,
+        notes: mergedNotes,
+        gain: 1.0,
+        mute: false,
+        waveform: firstGenerator.type === 'synth' ? firstGenerator.waveform : undefined,
+        filepath: firstGenerator.type === 'sampler' ? firstGenerator.filepath :
+                 firstGenerator.type === 'piano' ? firstGenerator.folderpath : undefined
+      };
+
+      visualTracks.push(visualTrack);
+    }
+
+    return visualTracks;
+  }
+
+  // Funkcja do generowania koloru tracka bazowanego na nucie
+  private calculateNoteTrackColor(note: string): string {
+    // Użyj tej samej logiki co dla pojedynczych nut, ale z większą saturacją dla tracka
+    const baseHue = this.noteToHue(note);
+    const saturation = 70; // Nieco mniejsza saturacja dla tła tracka
+    const lightness = 45;  // Ciemniejszy dla tła tracka
+
+    return `hsl(${baseHue}, ${saturation}%, ${lightness}%)`;
+  }
+
+  // Funkcja do porównywania nut dla sortowania
+  private compareNotes(noteA: string, noteB: string): number {
+    const noteOrder = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+    // Wyciągnij nazwę nuty i oktawę
+    const parseNote = (note: string) => {
+      const match = note.match(/^([A-G]#?)(\d+)$/);
+      if (!match) return { noteName: note, octave: 0 };
+      return { noteName: match[1], octave: parseInt(match[2]) };
+    };
+
+    const parsedA = parseNote(noteA);
+    const parsedB = parseNote(noteB);
+
+    // Najpierw sortuj według oktawy
+    if (parsedA.octave !== parsedB.octave) {
+      return parsedA.octave - parsedB.octave;
+    }
+
+    // Potem według nazwy nuty
+    const indexA = noteOrder.indexOf(parsedA.noteName);
+    const indexB = noteOrder.indexOf(parsedB.noteName);
+
+    return indexA - indexB;
+  }
+
+  // Funkcja do łączenia sąsiadujących bloków
+  private mergeAdjacentNotes(hits: Array<{ hit: Hit; startTime: number; globalStep: number; generator: Generator; originalTrackId: string }>, noteKey: string): VisualNote[] {
+    if (hits.length === 0) return [];
+
+    const mergedNotes: VisualNote[] = [];
+    let currentSegment: VisualNote | null = null;
+
+    for (let i = 0; i < hits.length; i++) {
+      const { hit, startTime, globalStep, generator, originalTrackId } = hits[i];
+
+      if (!currentSegment) {
+        // Rozpocznij nowy segment
+        currentSegment = {
+          id: `${noteKey}_note_${globalStep}_${i}`,
+          x: globalStep,
+          y: calculateNotePosition(hit.note),
+          width: hit.steps,
+          height: 0.8,
+          color: this.calculateNoteColor(hit.note, noteKey),
+          intensity: this.calculateNoteIntensity(hit.note),
+          trackId: noteKey,
+          note: hit.note,
+          step: globalStep,
+          steps: hit.steps
+        };
+      } else {
+        // Sprawdź czy ten hit jest sąsiadujący z poprzednim segmentem
+        const segmentEnd = currentSegment.x + currentSegment.width;
+        const gap = globalStep - segmentEnd;
+
+        if (gap <= 1) { // Jeśli przerwa jest 1 step lub mniej, połącz
+          // Rozszerz obecny segment
+          currentSegment.width = (globalStep + hit.steps) - currentSegment.x;
+          currentSegment.steps = currentSegment.width;
+        } else {
+          // Przerwa jest za duża, zakończ obecny segment i rozpocznij nowy
+          mergedNotes.push(currentSegment);
+
+          currentSegment = {
+            id: `${noteKey}_note_${globalStep}_${i}`,
+            x: globalStep,
+            y: calculateNotePosition(hit.note),
+            width: hit.steps,
+            height: 0.8,
+            color: this.calculateNoteColor(hit.note, noteKey),
+            intensity: this.calculateNoteIntensity(hit.note),
+            trackId: noteKey,
+            note: hit.note,
+            step: globalStep,
+            steps: hit.steps
+          };
+        }
+      }
+    }
+
+    // Dodaj ostatni segment
+    if (currentSegment) {
+      mergedNotes.push(currentSegment);
+    }
+
+    return mergedNotes;
   }
 
   private parseLoops(): VisualLoop[] {
@@ -277,6 +482,113 @@ export class LoopmakerParser {
 
   public getProgressPercentage(visualSong: VisualSong, currentTime: number): number {
     return Math.max(0, Math.min(100, (currentTime / visualSong.duration) * 100));
+  }
+
+  // Funkcja do określania kategorii instrumentu
+  private determineInstrumentCategory(generator: Generator, trackId?: string): string {
+    if (generator.type === 'piano') {
+      return 'Piano';
+    }
+
+    if (generator.type === 'synth') {
+      // Najpierw sprawdź nazwę tracka jeśli jest dostępna
+      if (trackId) {
+        const trackName = trackId.toLowerCase();
+        if (trackName.includes('bass')) {
+          return 'Bass Synth';
+        }
+        if (trackName.includes('lead')) {
+          return 'Lead Synth';
+        }
+        if (trackName.includes('pad')) {
+          return 'Pad Synth';
+        }
+        if (trackName.includes('arp')) {
+          return 'Arp Synth';
+        }
+      }
+
+      // Kategoryzuj syntezatory według waveform
+      switch (generator.waveform) {
+        case 'sine':
+          return 'Pad Synth';
+        case 'sawtooth':
+          return 'Bass Synth';
+        case 'square':
+          return 'Lead Synth';
+        case 'triangle':
+          return 'Soft Synth';
+        default:
+          return 'Synth';
+      }
+    }
+
+    if (generator.type === 'sampler') {
+      const filepath = generator.filepath.toLowerCase();
+
+      // Kategoryzuj sample według nazwy pliku
+      if (filepath.includes('kick') || filepath.includes('bd')) {
+        return 'Kick';
+      }
+      if (filepath.includes('snare') || filepath.includes('sd')) {
+        return 'Snare';
+      }
+      if (filepath.includes('hihat') || filepath.includes('hh') || filepath.includes('hat')) {
+        return 'Hi-Hat';
+      }
+      if (filepath.includes('crash') || filepath.includes('cymbal')) {
+        return 'Cymbals';
+      }
+      if (filepath.includes('perc') || filepath.includes('shaker') || filepath.includes('tambourine')) {
+        return 'Percussion';
+      }
+      if (filepath.includes('bass')) {
+        return 'Bass Sample';
+      }
+      if (filepath.includes('lead') || filepath.includes('melody')) {
+        return 'Lead Sample';
+      }
+      if (filepath.includes('pad') || filepath.includes('string')) {
+        return 'Pad Sample';
+      }
+      if (filepath.includes('vocal') || filepath.includes('voice')) {
+        return 'Vocals';
+      }
+      if (filepath.includes('fx') || filepath.includes('effect')) {
+        return 'FX';
+      }
+
+      return 'Sample';
+    }
+
+    return 'Unknown';
+  }
+
+  // Funkcja do generowania koloru obramowania kategorii
+  private getCategoryBorderColor(category: string): string {
+    const categoryColors: Record<string, string> = {
+      'Piano': '#FFD700',           // Złoty
+      'Pad Synth': '#00CED1',       // Turkusowy
+      'Bass Synth': '#FF4500',      // Pomarańczowo-czerwony
+      'Lead Synth': '#00FF00',      // Zielony
+      'Arp Synth': '#DDA0DD',       // Śliwkowy
+      'Soft Synth': '#9370DB',      // Fioletowy
+      'Synth': '#9370DB',           // Fioletowy
+      'Kick': '#DC143C',            // Czerwony
+      'Snare': '#FF69B4',           // Różowy
+      'Hi-Hat': '#00FFFF',          // Cyjan
+      'Cymbals': '#FFE4B5',         // Beżowy
+      'Percussion': '#FFA500',      // Pomarańczowy
+      'Bass Sample': '#8B0000',     // Ciemno-czerwony
+      'Lead Sample': '#1E90FF',     // Niebieski
+      'Pad Sample': '#98FB98',      // Jasno-zielony
+      'Vocals': '#FF1493',          // Głęboki różowy
+      'FX': '#800080',              // Fioletowy
+      'Sample': '#696969',          // Szary
+      'Unknown': '#808080'          // Szary
+    };
+
+    return categoryColors[category] || '#808080';
   }
 }
 
