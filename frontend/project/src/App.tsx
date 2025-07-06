@@ -40,13 +40,25 @@ const AppContent: React.FC = () => {
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Panel states
-
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-
   const [showFavorites, setShowFavorites] = useState(false);
-
   const [showShare, setShowShare] = useState(false);
+
+  // Advanced settings state - domyślnie wszystko zaznaczone (enabled: true)
+  const [advancedSettings, setAdvancedSettings] = useState({
+    style: { enabled: true, value: 'Lo-fi' },
+    tempo: { enabled: true, value: 128 },
+    bass: { enabled: true, value: 70 },
+    drums: { enabled: true, value: 85 },
+    melody: { enabled: true, value: 60 },
+    warmth: { enabled: true, value: 60 },
+    brightness: { enabled: true, value: 40 },
+    instruments: { enabled: true, value: { piano: true, drums: true, bass: true } }
+  });
+
+  // Duration state - osobno, zawsze wysyłane
+  const [duration, setDuration] = useState(60);
 
   // Current project for sharing
   const [currentProject, setCurrentProject] = useState<any>(null);
@@ -70,12 +82,7 @@ const AppContent: React.FC = () => {
       localStorage.setItem('promptbeat-favorites', JSON.stringify(favorites));
       const newVersion = favoritesVersion + 1;
       setFavoritesVersion(newVersion);
-      console.log('✅ Favorites saved:', favorites);
-      console.log('🔄 FavoritesVersion updated to:', newVersion);
 
-      // Verify save
-      const verification = localStorage.getItem('promptbeat-favorites');
-      console.log('🔍 Verification - saved data:', verification);
     } catch (error) {
       console.error('❌ Error saving favorites:', error);
     }
@@ -97,9 +104,28 @@ const AppContent: React.FC = () => {
     let currentProgress = 0;
 
     try {
+      // Przygotuj ustawienia zaawansowane
+      const advancedSettingsJson = {
+        duration: duration, // Zawsze wysyłane
+        style: advancedSettings.style.enabled ? advancedSettings.style.value : "default",
+        tempo: advancedSettings.tempo.enabled ? advancedSettings.tempo.value : "default",
+        bass: advancedSettings.bass.enabled ? advancedSettings.bass.value : "default",
+        drums: advancedSettings.drums.enabled ? advancedSettings.drums.value : "default",
+        melody: advancedSettings.melody.enabled ? advancedSettings.melody.value : "default",
+        warmth: advancedSettings.warmth.enabled ? advancedSettings.warmth.value : "default",
+        brightness: advancedSettings.brightness.enabled ? advancedSettings.brightness.value : "default",
+        instruments: advancedSettings.instruments.enabled ? advancedSettings.instruments.value : "default"
+      };
+
+      // Stwórz prompt z JSON-em
+      const promptWithSettings = `${prompt}\n\nAdvanced Settings: ${JSON.stringify(advancedSettingsJson)}`;
+
+      // Log do konsoli
+      console.log('🎵 Sending prompt to API:', promptWithSettings);
+
       // Przygotuj prompt dla API
       const generationPrompt: GenerationPrompt = {
-        text_prompt: prompt,
+        text_prompt: promptWithSettings,
         other_settings: {
           bpm: settings.defaultBpm || 128,
           style: settings.defaultStyle || "Lo-fi",
@@ -309,7 +335,7 @@ const AppContent: React.FC = () => {
     if (!hasGenerated || !prompt.trim()) return false;
     const favorites = getFavorites();
     const isFavorite = favorites.some((fav: any) => fav.prompt === prompt);
-    console.log('💖 Is current track favorite:', isFavorite, 'for prompt:', prompt);
+
     return isFavorite;
   }, [hasGenerated, prompt, favoritesVersion]);
 
@@ -368,6 +394,10 @@ const AppContent: React.FC = () => {
               onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
               onClear={handleClearPrompt}
               onRandom={handleRandomPrompt}
+              advancedSettings={advancedSettings}
+              setAdvancedSettings={setAdvancedSettings}
+              duration={duration}
+              setDuration={setDuration}
             />
 
             <AnimatePresence>
