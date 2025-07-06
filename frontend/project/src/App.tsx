@@ -18,6 +18,7 @@ import FavoritesPanel from './components/FavoritesPanel';
 
 import SharePanel from './components/SharePanel';
 import MusicBackground from './components/MusicBackground';
+import MusicGenerationLoader from './components/MusicGenerationLoader';
 import './styles/globals.css';
 
 const AppContent: React.FC = () => {
@@ -25,6 +26,9 @@ const AppContent: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStage, setGenerationStage] = useState<'generating' | 'pending' | 'complete'>('generating');
+  const [generationCancelled, setGenerationCancelled] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -84,6 +88,13 @@ const AppContent: React.FC = () => {
     setShowHints(false);
     setApiError(null);
     setApiStatus('generating');
+    setGenerationProgress(0);
+    setGenerationStage('generating');
+    setGenerationCancelled(false);
+
+    // Declare progressInterval outside try block
+    let progressInterval: NodeJS.Timeout | null = null;
+    let currentProgress = 0;
 
     try {
       // Przygotuj prompt dla API
@@ -96,9 +107,30 @@ const AppContent: React.FC = () => {
         }
       };
 
+      // Start progress animation
+
+      const updateProgress = () => {
+        currentProgress += Math.random() * 3 + 1; // Random increment 1-4%
+        if (currentProgress > 95) currentProgress = 95; // Cap at 95% until complete
+        setGenerationProgress(currentProgress);
+      };
+
+      progressInterval = setInterval(updateProgress, 500);
+
       // Wywołaj API z progress callback
       const result = await generateAndWaitForSong(generationPrompt, (status) => {
         setApiStatus(status);
+        setGenerationStage(status);
+
+        // Update progress based on stage
+        if (status === 'generating') {
+          currentProgress = Math.max(currentProgress, 10);
+        } else if (status === 'pending') {
+          currentProgress = Math.max(currentProgress, 30);
+        } else if (status === 'complete') {
+          clearInterval(progressInterval);
+          setGenerationProgress(100);
+        }
       });
 
       // Zapisz wygenerowaną piosenkę
@@ -139,6 +171,10 @@ const AppContent: React.FC = () => {
       setApiStatus('error');
     } finally {
       setIsGenerating(false);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
     }
 
     // Save to history
@@ -157,6 +193,13 @@ const AppContent: React.FC = () => {
     const existingHistory = JSON.parse(localStorage.getItem('promptbeat-history') || '[]');
     const updatedHistory = [historyItem, ...existingHistory.slice(0, 49)]; // Keep only 50 items
     localStorage.setItem('promptbeat-history', JSON.stringify(updatedHistory));
+  };
+
+  const handleCancelGeneration = () => {
+    setGenerationCancelled(true);
+    setIsGenerating(false);
+    setApiStatus('error');
+    setApiError('Generation cancelled by user');
   };
 
   const handleNewProject = () => {
@@ -442,6 +485,14 @@ const AppContent: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Music Generation Loader */}
+      <MusicGenerationLoader
+        isVisible={isGenerating}
+        progress={generationProgress}
+        stage={generationStage}
+        onCancel={handleCancelGeneration}
+      />
     </div>
   );
 };

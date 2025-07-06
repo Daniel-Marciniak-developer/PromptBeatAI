@@ -13,7 +13,7 @@ export interface GenerationPrompt {
 
 export interface GenerationResponse {
   id: string;
-  mode: 'mock' | 'openai';
+  mode: 'mock' | 'openai' | 'gemini';
 }
 
 export interface SongStatusResponse {
@@ -90,25 +90,29 @@ export class PromptBeatAIClient {
    * @returns Promise z ukończoną piosenką
    */
   async waitForSong(
-    songId: string, 
-    maxAttempts: number = 30, 
-    intervalMs: number = 2000
+    songId: string,
+    maxAttempts: number = 60,
+    intervalMs: number = 3000,
+    onProgress?: (attempt: number, maxAttempts: number) => void
   ): Promise<Song> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const status = await this.getSongStatus(songId);
-      
+
+      // Call progress callback
+      onProgress?.(attempt + 1, maxAttempts);
+
       if (status.status === 'complete' && status.result) {
         return status.result;
       }
-      
+
       if (status.status === 'error') {
         throw new Error(status.error || 'Song generation failed');
       }
-      
+
       // Czekaj przed następną próbą
       await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
-    
+
     throw new Error('Timeout: Song generation took too long');
   }
 
