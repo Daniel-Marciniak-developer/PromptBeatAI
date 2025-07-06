@@ -11,6 +11,8 @@ interface ApiHealth {
   responseTime?: number;
   lastChecked?: Date;
   error?: string;
+  aiService?: 'gemini' | 'openai' | 'none';
+  version?: string;
 }
 
 export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = '' }) => {
@@ -20,20 +22,23 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
   // Sprawdź status API
   const checkApiHealth = async (): Promise<ApiHealth> => {
     const startTime = Date.now();
-    
+
     try {
-      const response = await fetch('http://localhost:8000/docs', {
+      const response = await fetch('http://localhost:8000/health', {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       if (response.ok) {
+        const data = await response.json();
         return {
           status: 'online',
           responseTime,
-          lastChecked: new Date()
+          lastChecked: new Date(),
+          aiService: data.ai_service,
+          version: data.version
         };
       } else {
         return {
@@ -133,6 +138,11 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
           <span className="text-sm font-medium">
             {getStatusText()}
           </span>
+          {apiHealth.status === 'online' && apiHealth.aiService && (
+            <span className="text-xs opacity-60 capitalize">
+              ({apiHealth.aiService})
+            </span>
+          )}
           {apiHealth.status === 'online' && apiHealth.responseTime && (
             <span className="text-xs opacity-60">
               {formatResponseTime(apiHealth.responseTime)}
@@ -155,19 +165,33 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
                   <span className="opacity-60">Endpoint:</span>
                   <span>localhost:8000</span>
                 </div>
-                
+
+                {apiHealth.aiService && (
+                  <div className="flex justify-between">
+                    <span className="opacity-60">AI Service:</span>
+                    <span className="capitalize font-medium">{apiHealth.aiService}</span>
+                  </div>
+                )}
+
+                {apiHealth.version && (
+                  <div className="flex justify-between">
+                    <span className="opacity-60">Version:</span>
+                    <span>{apiHealth.version}</span>
+                  </div>
+                )}
+
                 {apiHealth.responseTime && (
                   <div className="flex justify-between">
                     <span className="opacity-60">Response Time:</span>
                     <span>{formatResponseTime(apiHealth.responseTime)}</span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between">
                   <span className="opacity-60">Last Checked:</span>
                   <span>{formatLastChecked(apiHealth.lastChecked)}</span>
                 </div>
-                
+
                 {apiHealth.error && (
                   <div className="flex justify-between">
                     <span className="opacity-60">Error:</span>
