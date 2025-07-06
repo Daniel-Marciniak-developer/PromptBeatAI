@@ -55,14 +55,36 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
   const [downloadQuality, setDownloadQuality] = useState<'128' | '192' | '320' | 'lossless'>('320');
 
   const handleTimeUpdate = useCallback((time: number, dur: number) => {
+    console.log('🎵 HandleTimeUpdate called:', {
+      time: time.toFixed(3),
+      dur: dur,
+      isFiniteDur: isFinite(dur),
+      durGreaterThanZero: dur > 0,
+      visualSongDuration: visualSong?.duration
+    });
+
     setCurrentTime(time);
+
     // Use audio duration if valid, otherwise fallback to song data duration
-    if (isFinite(dur) && dur > 0) {
+    if (isFinite(dur) && dur > 0 && dur !== Infinity) {
+      console.log('🎵 Setting duration from audio:', dur);
       setDuration(dur);
     } else if (visualSong && isFinite(visualSong.duration) && visualSong.duration > 0) {
+      console.log('🎵 Setting duration from visual song:', visualSong.duration);
       setDuration(visualSong.duration);
+    } else {
+      console.warn('🎵 No valid duration available');
     }
   }, [visualSong]);
+  // Fallback duration from visualSong if audio duration is invalid
+  useEffect(() => {
+    if (visualSong && isFinite(visualSong.duration) && visualSong.duration > 0) {
+      if (!isFinite(duration) || duration <= 0 || duration === Infinity) {
+        console.log('🎵 Using visualSong duration as fallback:', visualSong.duration);
+        setDuration(visualSong.duration);
+      }
+    }
+  }, [visualSong, duration]);
 
   const handleFrequencyData = useCallback((data: Uint8Array) => {
     setFrequencyData(data);
@@ -276,7 +298,8 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
 
 
         // Set duration from song data if audio duration is not available
-        if (!isFinite(duration) || duration <= 0) {
+        if (!isFinite(duration) || duration <= 0 || duration === Infinity) {
+          console.log('🎵 Setting initial duration from song data:', songData.duration);
           setDuration(songData.duration);
         }
       } catch (error) {

@@ -288,22 +288,17 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     const tracks = externalGetAllTracks ? externalGetAllTracks() : getAllTracks();
     const leftPanelWidth = 200; // Standardowy rozmiar
 
-    // ZWIĘKSZONA rezerwa na kontrolki dolne - żeby ostatni wiersz nie był ucinany
-    const bottomReserve = 120; // Zwiększona rezerwa na kontrolki + padding
-    const availableHeight = containerSize.height - bottomReserve;
+    // UPROSZCZONE obliczanie wysokości tracków - pozwól flexbox zarządzać przestrzenią
+    const minTrackHeight = 20; // Zwiększone minimum dla lepszej czytelności
+    const maxTrackHeight = 45; // Maksimum dla estetyki
 
-    // DYNAMICZNE wysokości tracków - ZAWSZE WYPEŁNIAJ DOSTĘPNĄ PRZESTRZEŃ
-    const minTrackHeight = 12; // Absolutne minimum dla czytelności
-    const maxTrackHeight = 50; // Maksimum dla estetyki
-    const gapBetweenTracks = 2; // Gap między trackami
+    // Oblicz optymalną wysokość na podstawie liczby tracków
+    const optimalTrackHeight = tracks.length <= 10 ? maxTrackHeight :
+                              tracks.length <= 20 ? 35 :
+                              tracks.length <= 30 ? 28 :
+                              minTrackHeight;
 
-    // Oblicz idealną wysokość tracka żeby wypełnić całą dostępną przestrzeń
-    const totalGaps = Math.max(0, tracks.length - 1) * gapBetweenTracks;
-    const availableForTracks = availableHeight - totalGaps;
-    const idealTrackHeight = Math.max(minTrackHeight, Math.min(maxTrackHeight, availableForTracks / Math.max(1, tracks.length)));
-
-    // Użyj idealnej wysokości - zawsze wypełnij przestrzeń!
-    const trackHeight = Math.round(idealTrackHeight);
+    const trackHeight = optimalTrackHeight;
 
     // Oblicz rzeczywistą szerokość obszaru bloków muzycznych - maksymalne wykorzystanie przestrzeni
     const timelineWidth = containerSize.width - leftPanelWidth - 16; // Bardzo małe marginesy dla maksymalnej szerokości
@@ -313,8 +308,7 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
       trackHeight,
       tracks,
       totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0,
-      timelineWidth,
-      availableHeight // Dodaj availableHeight do return
+      timelineWidth
     };
   }, [visualSong, containerSize, externalGetAllTracks]);
 
@@ -388,13 +382,23 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
   // Master timeline duration - always use audio duration as source of truth
   const masterDuration = useMemo(() => {
+    console.log('🎵 MasterDuration calculation:', {
+      audioDuration: duration,
+      isAudioDurationValid: isFinite(duration) && duration > 0,
+      visualSongDuration: visualSong?.duration,
+      isVisualSongDurationValid: visualSong && isFinite(visualSong.duration) && visualSong.duration > 0
+    });
+
     // Priority: 1. Audio duration (real), 2. Calculated duration (fallback)
-    if (isFinite(duration) && duration > 0) {
+    if (isFinite(duration) && duration > 0 && duration !== Infinity) {
+      console.log('🎵 ✅ Using audio duration:', duration, 'seconds');
       return duration; // Use real audio duration
     }
     if (visualSong && isFinite(visualSong.duration) && visualSong.duration > 0) {
+      console.log('🎵 ⚠️ Using visual song duration:', visualSong.duration, 'seconds (audio duration not available)');
       return visualSong.duration; // Fallback to calculated duration
     }
+    console.log('🎵 ❌ No valid duration found, returning 0');
     return 0;
   }, [duration, visualSong]);
 
@@ -465,9 +469,15 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     return mergedBlocks;
   }, []);
 
+  // State for dragging
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const lastSeekTime = useRef(0);
+
   // Handle timeline click for seeking - use actual timeline width
   const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!visualSong || masterDuration <= 0) return;
+    if (!visualSong || masterDuration <= 0 || isDragging) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -485,14 +495,77 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
       seekCalled: !!onSeek
     });
 
-    // Emit seek event to parent component
+    // Emit seek event to parent component immediately
     if (onSeek) {
       console.log('🎯 Calling onSeek with time:', newTime.toFixed(3));
       onSeek(newTime);
     } else {
       console.warn('🎯 No onSeek callback provided');
     }
-  }, [visualSong, onSeek, masterDuration]);
+  }, [visualSong, onSeek, masterDuration, isDragging]);
+
+  // Handle mouse down on playhead for dragging
+  const handlePlayheadMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!visualSong || masterDuration <= 0) return;
+
+    setIsDragging(true);
+    setDragStartX(e.clientX);
+    setDragStartTime(currentTime);
+
+    console.log('🎯 Drag started at time:', currentTime.toFixed(3));
+  }, [visualSong, masterDuration, currentTime]);
+
+  // Handle mouse move during dragging
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !visualSong || masterDuration <= 0) return;
+
+    const timelineElement = document.querySelector('[data-timeline="true"]') as HTMLElement;
+    if (!timelineElement) return;
+
+    const rect = timelineElement.getBoundingClientRect();
+    const deltaX = e.clientX - dragStartX;
+    const deltaPercentage = deltaX / rect.width;
+    const deltaTime = deltaPercentage * masterDuration;
+
+    const newTime = Math.max(0, Math.min(masterDuration, dragStartTime + deltaTime));
+
+    console.debug('🎯 Dragging to time:', newTime.toFixed(3));
+
+    // Throttle seek calls to avoid overwhelming the audio player
+    const now = performance.now();
+    if (now - lastSeekTime.current > 16) { // ~60fps throttling
+      lastSeekTime.current = now;
+
+      // Update immediately during drag
+      if (onSeek) {
+        onSeek(newTime);
+      }
+    }
+  }, [isDragging, visualSong, masterDuration, dragStartX, dragStartTime, onSeek]);
+
+  // Handle mouse up to end dragging
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+      console.log('🎯 Drag ended');
+      setIsDragging(false);
+    }
+  }, [isDragging]);
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
 
 
@@ -571,7 +644,27 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     );
   }
 
-  const { leftPanelWidth, trackHeight, tracks, timelineWidth, availableHeight } = getLayoutDimensions();
+  const { leftPanelWidth, trackHeight, tracks, timelineWidth } = getLayoutDimensions();
+
+  // Debug layout dimensions AND duration
+  console.log('🎵 Layout dimensions:', {
+    leftPanelWidth,
+    timelineWidth,
+    calculatedTimelineWidth: Math.max(600, timelineWidth),
+    containerWidth: containerSize.width,
+    containerHeight: containerSize.height,
+    trackHeight,
+    tracksCount: tracks.length,
+    totalTracksHeight: tracks.length * trackHeight
+  });
+
+  console.log('🎵 Duration debug:', {
+    durationProp: duration,
+    masterDuration,
+    visualSongDuration: visualSong?.duration,
+    currentTime,
+    isPlaying
+  });
 
   return (
     <motion.div
@@ -627,8 +720,7 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
             className="tracks-container flex flex-col gap-0.5 relative flex-1" // Ultra zmniejszony gap + wypełnij przestrzeń
             style={{
               paddingLeft: `${leftPanelWidth}px`,
-              height: `${availableHeight}px`, // ZAWSZE WYPEŁNIJ CAŁĄ DOSTĘPNĄ PRZESTRZEŃ
-              maxHeight: `${availableHeight}px`,
+              // Usuń sztywną wysokość - pozwól flexbox zarządzać przestrzenią
               overflowY: 'visible' // NIGDY SCROLL - zawsze wypełnij przestrzeń
             }}
           >
@@ -655,9 +747,9 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                   <div
                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                     style={{
-                      backgroundColor: (track as any).borderColor || track.color, // KOLOR KATEGORII (dla nazw tracków)
-                      boxShadow: `0 0 3px ${(track as any).borderColor || track.color}`,
-                      border: `1px solid ${(track as any).borderColor || track.color}` // Obramowanie = kolor kategorii
+                      backgroundColor: track.color, // KOLOR BLOKÓW DŹWIĘKOWYCH (unikalny dla każdego tracka)
+                      boxShadow: `0 0 3px ${track.color}`,
+                      border: `1px solid ${track.color}` // Obramowanie = kolor bloków dźwiękowych
                     }}
                   />
                   <span
@@ -827,9 +919,11 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                   rgba(111, 0, 255, 0.2) 0%,
                   rgba(0, 255, 136, 0.2) 50%,
                   rgba(255, 0, 128, 0.2) 100%)`,
-                border: `1px solid ${colors.trackBorder}`
+                border: `1px solid ${colors.trackBorder}`,
+                boxSizing: 'border-box' // Upewnij się, że border jest wliczony w szerokość
               }}
               onClick={handleTimelineClick}
+              data-timeline="true"
             >
               {/* Wypełnienie postępu z precyzyjną synchronizacją */}
               <div
@@ -846,59 +940,89 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                 }}
               />
 
-              {/* Suwak z precyzyjną synchronizacją */}
+              {/* Suwak z precyzyjną synchronizacją i obsługą przeciągania */}
               <div
-                className="absolute top-1/2 w-4 h-4 rounded-full cursor-grab active:cursor-grabbing"
+                className={`absolute top-1/2 w-4 h-4 rounded-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} transition-transform hover:scale-110`}
                 style={{
-                  left: `${(progressPercentage / 100) * Math.max(600, timelineWidth) - 8}px`, // Pozycja w pikselach względem timeline width
+                  left: `calc(${progressPercentage}% - 8px)`, // Pozycja w procentach względem rzeczywistej szerokości paska
                   top: '50%',
-                  transform: `translateY(-50%) translateZ(0)`, // Tylko center vertically
+                  transform: `translateY(-50%) translateZ(0) ${isDragging ? 'scale(1.2)' : 'scale(1)'}`, // Powiększ podczas przeciągania
                   background: colors.playhead,
                   border: `2px solid ${colors.text}`,
-                  boxShadow: `0 0 10px ${colors.playhead}`,
+                  boxShadow: `0 0 ${isDragging ? '15px' : '10px'} ${colors.playhead}`,
                   // Optimized for smooth animation
-                  transition: 'none', // Always smooth for real-time
-                  willChange: 'left',
-                  backfaceVisibility: 'hidden'
+                  transition: isDragging ? 'none' : 'transform 0.2s ease', // Smooth hover, instant during drag
+                  willChange: 'left, transform',
+                  backfaceVisibility: 'hidden',
+                  zIndex: 10
                 }}
+                onMouseDown={handlePlayheadMouseDown}
               />
             </div>
 
-            {/* Markery czasu i informacje o trackach */}
-            <div className="relative" style={{ paddingLeft: `${leftPanelWidth}px` }}>
-              <div className="flex justify-between items-center mt-1">
-                {/* Markery czasu po lewej */}
-                <div
-                  className="flex justify-between text-xs"
-                  style={{
-                    color: colors.textSecondary,
-                    width: `${Math.max(600, timelineWidth)}px`, // Dokładna szerokość jak timeline
-                    maxWidth: '70%' // Zostaw miejsce na informacje po prawej
-                  }}
-                >
-                {[0, 0.25, 0.5, 0.75, 1].map((position) => {
-                  const time = position * masterDuration;
-                  return (
-                    <span key={position} className="font-mono">
-                      {isFinite(time) ?
-                        `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}` :
-                        '0:00'
-                      }
-                    </span>
-                  );
-                })}
-                </div>
+            {/* Markery czasu - BEZPOŚREDNIO pod paskiem postępu w tym samym kontenerze */}
+            <div
+              className="relative text-xs mt-1"
+              style={{
+                color: colors.textSecondary,
+                width: `${Math.max(600, timelineWidth)}px`, // IDENTYCZNA szerokość jak pasek
+                maxWidth: '100%', // IDENTYCZNE ograniczenie
+                height: '20px',
+                boxSizing: 'border-box' // IDENTYCZNE box-sizing
+              }}
+            >
+              {[0, 0.25, 0.5, 0.75, 1].map((position) => {
+                const time = position * masterDuration;
+                const leftPosition = position * 100; // Pozycja w procentach
 
-                {/* Informacje o trackach po prawej */}
-                <div className="flex items-center gap-3 text-xs" style={{ color: colors.textSecondary }}>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.secondary }}></div>
-                    <span className="font-medium">{tracks.length} tracks</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }}></div>
-                    <span className="font-medium">{tracks.reduce((sum, track) => sum + (track.notes?.length || 0), 0)} notes</span>
-                  </div>
+                // Debug timeline markers
+                if (position === 0.25) {
+                  console.log('🕐 Timeline marker debug:', {
+                    position,
+                    masterDuration,
+                    calculatedTime: time,
+                    timeInMinutes: time / 60,
+                    timeInSeconds: time % 60,
+                    formattedTime: `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}`,
+                    allMarkers: [0, 0.25, 0.5, 0.75, 1].map(p => ({
+                      position: p,
+                      time: p * masterDuration,
+                      formatted: `${Math.floor((p * masterDuration) / 60)}:${Math.floor((p * masterDuration) % 60).toString().padStart(2, '0')}`
+                    }))
+                  });
+                }
+
+                return (
+                  <span
+                    key={position}
+                    className="font-mono absolute"
+                    style={{
+                      left: `${leftPosition}%`,
+                      transform: position === 0 ? 'translateX(0%)' :
+                               position === 1 ? 'translateX(-100%)' :
+                               'translateX(-50%)', // Wyśrodkuj markery środkowe, wyrównaj skrajne
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {isFinite(time) ?
+                      `${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}` :
+                      '0:00'
+                    }
+                  </span>
+                );
+              })}
+            </div>
+
+            {/* Informacje o trackach po prawej stronie markerów */}
+            <div className="flex justify-end mt-1" style={{ paddingRight: '16px' }}>
+              <div className="flex items-center gap-3 text-xs" style={{ color: colors.textSecondary }}>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.secondary }}></div>
+                  <span className="font-medium">{tracks.length} tracks</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }}></div>
+                  <span className="font-medium">{tracks.reduce((sum, track) => sum + (track.notes?.length || 0), 0)} notes</span>
                 </div>
               </div>
             </div>

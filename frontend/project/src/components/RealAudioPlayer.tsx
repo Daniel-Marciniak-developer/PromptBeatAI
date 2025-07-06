@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Play, 
-  Pause, 
-  Download, 
-  Volume2, 
-  VolumeX, 
-  Share, 
-  SkipBack, 
+import {
+  Play,
+  Pause,
+  Download,
+  Volume2,
+  VolumeX,
+  Share,
+  SkipBack,
   SkipForward,
   Repeat,
   Shuffle
@@ -169,7 +169,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const newTime = percentage * duration;
-    
+
     audioRef.current.currentTime = newTime;
     setCurrentTime(newTime);
   }, [duration]);
@@ -181,10 +181,17 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       return;
     }
 
-    console.log('🎯 SeekTo called with time:', time.toFixed(3), 'duration:', audioRef.current.duration?.toFixed(3) || 'unknown');
+    const audioDuration = audioRef.current.duration;
+    console.log('🎯 SeekTo called with time:', time.toFixed(3), 'duration:', audioDuration?.toFixed(3) || 'unknown');
+
+    // Check if duration is valid (not Infinity or NaN)
+    if (!isFinite(audioDuration) || audioDuration <= 0) {
+      console.warn('🎯 Cannot seek - invalid audio duration:', audioDuration);
+      return;
+    }
 
     // Clamp time to valid range
-    const clampedTime = Math.max(0, Math.min(time, audioRef.current.duration || 0));
+    const clampedTime = Math.max(0, Math.min(time, audioDuration));
 
     audioRef.current.currentTime = clampedTime;
     setCurrentTime(clampedTime);
@@ -236,7 +243,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
   // Toggle mute
   const toggleMute = useCallback(() => {
     if (!audioRef.current) return;
-    
+
     if (isMuted) {
       audioRef.current.volume = volume;
       setIsMuted(false);
@@ -305,9 +312,29 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     if (!audio) return;
 
     const handleLoadedMetadata = () => {
+      console.log('🎵 Audio metadata loaded:', {
+        duration: audio.duration,
+        readyState: audio.readyState,
+        networkState: audio.networkState,
+        src: audio.src,
+        currentSrc: audio.currentSrc
+      });
 
-      setDuration(audio.duration);
-      setIsLoading(false);
+      // Check if duration is valid
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+        setIsLoading(false);
+
+        // Immediately notify parent component about the duration
+        if (onTimeUpdate) {
+          onTimeUpdate(audio.currentTime, audio.duration);
+          console.log('🎵 Sent initial time update:', audio.currentTime.toFixed(3), 'duration:', audio.duration.toFixed(3));
+        }
+      } else {
+        console.warn('🎵 Invalid duration received:', audio.duration);
+        // Try to get duration from other events
+        setIsLoading(false);
+      }
     };
 
     const handleTimeUpdate = () => {
@@ -332,8 +359,36 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     };
 
     const handleCanPlay = () => {
+      console.log('🎵 Can play event:', {
+        duration: audio.duration,
+        readyState: audio.readyState
+      });
 
       setIsLoading(false);
+
+      // Try to get duration if not already set
+      if (isFinite(audio.duration) && audio.duration > 0 && (!isFinite(duration) || duration <= 0)) {
+        console.log('🎵 Setting duration from canplay event:', audio.duration);
+        setDuration(audio.duration);
+        if (onTimeUpdate) {
+          onTimeUpdate(audio.currentTime, audio.duration);
+        }
+      }
+    };
+
+    const handleDurationChange = () => {
+      console.log('🎵 Duration change event:', {
+        duration: audio.duration,
+        readyState: audio.readyState
+      });
+
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        console.log('🎵 Setting duration from durationchange event:', audio.duration);
+        setDuration(audio.duration);
+        if (onTimeUpdate) {
+          onTimeUpdate(audio.currentTime, audio.duration);
+        }
+      }
     };
 
     const handleError = (e: any) => {
@@ -342,6 +397,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('durationchange', handleDurationChange);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('loadstart', handleLoadStart);
@@ -350,6 +406,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('loadstart', handleLoadStart);
@@ -357,6 +414,21 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       audio.removeEventListener('error', handleError);
     };
   }, [isRepeat, onTimeUpdate]);
+  // Handle audio source changes
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    console.log('🎵 Audio source changed to:', audioSrc);
+
+    // Reset state when audio source changes
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setIsLoading(true);
+
+    // Force reload of audio element
+    audioRef.current.load();
+  }, [audioSrc]);
 
 
 
@@ -380,7 +452,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <motion.div 
+    <motion.div
       className="real-audio-player bg-glass backdrop-blur-lg border border-white/10 rounded-2xl p-6"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
@@ -389,10 +461,12 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
       <audio
         ref={audioRef}
         src={audioSrc}
-        preload="auto"
+        preload="metadata"
         crossOrigin="anonymous"
         controls={false}
         muted={false}
+        playsInline
+        webkit-playsinline="true"
       />
 
       {/* Track Info */}
@@ -464,7 +538,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
               )}
             </AnimatePresence>
           </div>
-          
+
           {/* Progress ring */}
           <svg className="absolute inset-0 w-16 h-16 -rotate-90">
             <circle
@@ -521,7 +595,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
 
       {/* Progress Bar */}
       <div className="mb-4">
-        <div 
+        <div
           className="relative h-2 bg-white/10 rounded-full cursor-pointer group"
           onClick={handleSeek}
         >
@@ -531,10 +605,10 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.1 }}
           />
-          
+
           {/* Hover effect */}
           <div className="absolute inset-0 bg-white/5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-          
+
           {/* Progress thumb */}
           <motion.div
             className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-gradient-to-r from-accent-from to-accent-to rounded-full border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
@@ -543,7 +617,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
             transition={{ duration: 0.1 }}
           />
         </div>
-        
+
         {/* Time display */}
         <div className="flex justify-between text-sm text-white/60 mt-2">
           <span>{formatTime(currentTime)}</span>
@@ -567,7 +641,7 @@ const RealAudioPlayer = forwardRef<RealAudioPlayerRef, RealAudioPlayerProps>(({
               <Volume2 className="w-5 h-5" />
             )}
           </motion.button>
-          
+
           <div
             className="w-20 h-1 bg-white/20 rounded-full overflow-hidden cursor-pointer"
             onClick={(e) => {
