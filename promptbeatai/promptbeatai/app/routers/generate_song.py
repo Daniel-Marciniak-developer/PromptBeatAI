@@ -288,7 +288,7 @@ async def head_song_mp3(song_id: str):
     )
 
 @router.get('/song/mp3/{song_id}')
-async def get_song_mp3(song_id: str):
+async def get_song_mp3(song_id: str, download: bool = False):
     if song_id == '0':
         return RedirectResponse(url="/beat-freestyle.mp3")
     if song_id not in song_store:

@@ -41,12 +41,14 @@ app.include_router(generate_song_router)
 @app.get('/health')
 async def health_check():
     """Health check endpoint that shows which AI service is being used"""
-    from .routers.generate_song import GEMINI_API_KEY, OPENAI_API_KEY
+    # Sprawdź zmienne środowiskowe bezpośrednio
+    gemini_key = 'AIzaSyCXsBX7pUUXPamdqjYNIAbFxwFUSrPVBA0'
+    openai_key = os.getenv('OPENAI_API_KEY', None)
 
     ai_service = 'none'
-    if GEMINI_API_KEY:
+    if gemini_key:
         ai_service = 'gemini'
-    elif OPENAI_API_KEY:
+    elif openai_key:
         ai_service = 'openai'
 
     return {
