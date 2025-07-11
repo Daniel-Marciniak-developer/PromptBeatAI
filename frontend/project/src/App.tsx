@@ -30,6 +30,7 @@ const AppContent: React.FC = () => {
   const [generationStage, setGenerationStage] = useState<'generating' | 'pending' | 'complete'>('generating');
   const [generationCancelled, setGenerationCancelled] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
 
@@ -45,16 +46,18 @@ const AppContent: React.FC = () => {
   const [showFavorites, setShowFavorites] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
-  // Advanced settings state - domyślnie wszystko zaznaczone (enabled: true)
+  // Advanced settings state - domyślnie wszystko odznaczone (enabled: false = Default)
   const [advancedSettings, setAdvancedSettings] = useState({
-    style: { enabled: true, value: 'Lo-fi' },
-    tempo: { enabled: true, value: 128 },
-    bass: { enabled: true, value: 70 },
-    drums: { enabled: true, value: 85 },
-    melody: { enabled: true, value: 60 },
-    warmth: { enabled: true, value: 60 },
-    brightness: { enabled: true, value: 40 },
-    instruments: { enabled: true, value: { piano: true, drums: true, bass: true } }
+    style: { enabled: false, value: 'Lo-fi' },
+    tempo: { enabled: false, value: 128 },
+    bass: { enabled: false, value: 70 },
+    drums: { enabled: false, value: 85 },
+    melody: { enabled: false, value: 60 },
+    warmth: { enabled: false, value: 60 },
+    brightness: { enabled: false, value: 40 },
+    instruments: { enabled: false, value: { piano: true, drums: true, bass: true } },
+    dynamics: { enabled: false, value: null }, // Nowy checkbox dla Dynamics
+    atmosphere: { enabled: false, value: null } // Nowy checkbox dla Atmosphere
   });
 
   // Duration state - osobno, zawsze wysyłane
@@ -166,6 +169,12 @@ const AppContent: React.FC = () => {
       setHasGenerated(true);
       setShowAdvanced(true);
       setShowHints(true);
+
+      // Pokaż animację sukcesu
+      setShowSuccessAnimation(true);
+      setTimeout(() => {
+        setShowSuccessAnimation(false);
+      }, 3000); // Ukryj po 3 sekundach
 
       // Create new project z wygenerowanymi danymi
       const newProject = {
@@ -417,33 +426,49 @@ const AppContent: React.FC = () => {
                     title={generatedSong ? `AI Generated - ${prompt.slice(0, 30)}...` : "AI Generated Track"}
                     artist="PromptBeat AI"
                     onShare={handleOpenShare}
-                    onDownload={(format, quality) => {
-                      // Use format from settings if not specified
-                      const downloadFormat = format || settings.downloadFormat;
+                    onDownload={async (format, quality) => {
+                      try {
+                        // Use format from settings if not specified
+                        const downloadFormat = format || settings.downloadFormat;
+                        const audioSrc = generatedSongId ? `${getMp3Url(generatedSongId)}?download=true` : "/beat-freestyle.mp3?download=true";
 
-                      // Create a download link for the audio file
-                      const audioSrc = generatedSongId ? getMp3Url(generatedSongId) : "/beat-freestyle.mp3";
-                      const link = document.createElement('a');
-                      link.href = audioSrc;
-                      link.download = `ai-generated-${quality}.${downloadFormat.toLowerCase()}`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
+                        // Fetch the file as blob to force download
+                        const response = await fetch(audioSrc);
+                        const blob = await response.blob();
 
-                      // Save to downloads history
-                      const downloadItem = {
-                        id: Date.now().toString(),
-                        name: generatedSong ? `AI Generated - ${prompt.slice(0, 20)}...` : "AI Generated Track",
-                        format: downloadFormat,
-                        quality: quality,
-                        downloadedAt: new Date(),
-                        size: "3.2 MB",
-                        url: audioSrc
-                      };
+                        // Create blob URL and download
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = `ai-generated-${quality}.${downloadFormat.toLowerCase()}`;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
 
-                      const downloads = JSON.parse(localStorage.getItem('promptbeat-downloads') || '[]');
-                      downloads.unshift(downloadItem);
-                      localStorage.setItem('promptbeat-downloads', JSON.stringify(downloads.slice(0, 50)));
+                        // Clean up blob URL
+                        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+                        // Save to downloads history
+                        const downloadItem = {
+                          id: Date.now().toString(),
+                          name: generatedSong ? `AI Generated - ${prompt.slice(0, 20)}...` : "AI Generated Track",
+                          format: downloadFormat,
+                          quality: quality,
+                          downloadedAt: new Date(),
+                          size: "3.2 MB",
+                          url: audioSrc
+                        };
+
+                        const downloads = JSON.parse(localStorage.getItem('promptbeat-downloads') || '[]');
+                        downloads.unshift(downloadItem);
+                        localStorage.setItem('promptbeat-downloads', JSON.stringify(downloads.slice(0, 50)));
+                      } catch (error) {
+                        console.error('Download failed:', error);
+                        // Fallback - try with download attribute
+                        const audioSrc = generatedSongId ? getMp3Url(generatedSongId) : "/beat-freestyle.mp3";
+                        window.open(audioSrc + '?download=true', '_blank');
+                      }
                     }}
                     onAddToFavorites={handleAddToFavorites}
                     isFavorite={isCurrentTrackFavorite}
@@ -456,6 +481,46 @@ const AppContent: React.FC = () => {
             <AnimatePresence>
               {showHints && settings.showHints && (
                 <HintSuggestions onHintClick={(hint) => setPrompt(prev => prev + ' ' + hint)} />
+              )}
+            </AnimatePresence>
+
+            {/* Success Animation */}
+            <AnimatePresence>
+              {showSuccessAnimation && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50"
+                >
+                  <div className="bg-green-500/90 backdrop-blur-lg rounded-full p-8 shadow-2xl">
+                    <motion.svg
+                      className="w-16 h-16 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.8, delay: 0.2 }}
+                    >
+                      <motion.path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </motion.svg>
+                  </div>
+                  <motion.p
+                    className="text-white text-center mt-4 font-semibold"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    Music Generated Successfully!
+                  </motion.p>
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

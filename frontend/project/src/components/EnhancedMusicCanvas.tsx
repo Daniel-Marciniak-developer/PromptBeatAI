@@ -116,9 +116,32 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
     setShowDownloadModal(true);
   };
 
-  const handleDownloadConfirm = () => {
+  const handleDownloadConfirm = async () => {
     if (onDownload) {
-      onDownload(downloadFormat, downloadQuality);
+      await onDownload(downloadFormat, downloadQuality);
+    } else {
+      // Fallback download logic - force download with blob
+      try {
+        const downloadUrl = audioSrc + '?download=true';
+        const response = await fetch(downloadUrl);
+        const blob = await response.blob();
+
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `${title.replace(/\s+/g, '_')}.${downloadFormat}`;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up blob URL
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      } catch (error) {
+        console.error('Download failed:', error);
+        // Last resort fallback
+        window.open(audioSrc + '?download=true', '_blank');
+      }
     }
 
     // Add to downloads history
