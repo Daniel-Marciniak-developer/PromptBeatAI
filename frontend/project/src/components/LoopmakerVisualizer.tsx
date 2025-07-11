@@ -646,6 +646,29 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
   const { leftPanelWidth, trackHeight, tracks, timelineWidth } = getLayoutDimensions();
 
+  // Debug: sprawdź maksymalne pozycje bloków
+  const maxBlockPosition = useMemo(() => {
+    if (!tracks.length) return 0;
+
+    let maxEndPosition = 0;
+    tracks.forEach(track => {
+      track.notes.forEach(note => {
+        const endPosition = note.step + note.steps;
+        if (endPosition > maxEndPosition) {
+          maxEndPosition = endPosition;
+        }
+      });
+    });
+
+    return maxEndPosition;
+  }, [tracks]);
+
+  console.log('🎵 Block positions debug:', {
+    maxBlockPosition,
+    totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0,
+    blocksReachEnd: maxBlockPosition >= (visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0)
+  });
+
   // Debug layout dimensions AND duration
   console.log('🎵 Layout dimensions:', {
     leftPanelWidth,
@@ -655,7 +678,9 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     containerHeight: containerSize.height,
     trackHeight,
     tracksCount: tracks.length,
-    totalTracksHeight: tracks.length * trackHeight
+    totalTracksHeight: tracks.length * trackHeight,
+    trackContainerWidth: Math.max(600, timelineWidth), // Szerokość kontenerów tracków
+    availableWidth: containerSize.width - leftPanelWidth - 16 // Dostępna szerokość
   });
 
   console.log('🎵 Duration debug:', {
@@ -663,7 +688,11 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     masterDuration,
     visualSongDuration: visualSong?.duration,
     currentTime,
-    isPlaying
+    isPlaying,
+    totalBars: visualSong?.totalBars,
+    beatsPerBar: visualSong?.beatsPerBar,
+    stepsPerBeat: visualSong?.stepsPerBeat,
+    totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0
   });
 
   return (
@@ -793,13 +822,16 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
                 {/* Track Timeline */}
                 <div
-                  className="w-full h-full relative rounded-lg overflow-hidden"
+                  className="h-full relative rounded-lg overflow-hidden"
                   style={{
+                    width: `${Math.max(600, timelineWidth)}px`, // IDENTYCZNA szerokość jak timeline na dole
+                    maxWidth: '100%', // Nie przekraczaj kontenera
                     background: `linear-gradient(90deg,
                       rgba(111, 0, 255, 0.05) 0%,
                       rgba(0, 255, 136, 0.03) 50%,
                       rgba(255, 0, 128, 0.05) 100%)`,
-                    border: `1px solid ${colors.trackBorder}`
+                    border: `1px solid ${colors.trackBorder}`,
+                    boxSizing: 'border-box' // Upewnij się, że border jest wliczony w szerokość
                   }}
                 >
                   {/* Grid Background */}
@@ -827,6 +859,19 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
                     // Use raw positions for consistent visual layout
                     const startPercent = Math.max(0, Math.min(100, rawStartPercent));
                     const widthPercent = Math.max(1.0, rawWidthPercent); // Minimum 1% width for visibility
+
+                    // Debug block positioning (tylko dla pierwszego bloku każdego tracka)
+                    if (blockIndex === 0) {
+                      console.log(`🎵 Block positioning for ${track.name}:`, {
+                        blockStep: block.step,
+                        blockSteps: block.steps,
+                        totalSteps,
+                        rawStartPercent: rawStartPercent.toFixed(2),
+                        rawWidthPercent: rawWidthPercent.toFixed(2),
+                        finalStartPercent: startPercent.toFixed(2),
+                        finalWidthPercent: widthPercent.toFixed(2)
+                      });
+                    }
 
                     // Sprawdź czy którakolwiek z nut w bloku jest aktywna
                     const isActive = block.mergedNotes ?
