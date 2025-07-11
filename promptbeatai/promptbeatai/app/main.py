@@ -42,7 +42,7 @@ app.include_router(generate_song_router)
 async def health_check():
     """Health check endpoint that shows which AI service is being used"""
     # Sprawdź zmienne środowiskowe bezpośrednio
-    gemini_key = 'AIzaSyCXsBX7pUUXPamdqjYNIAbFxwFUSrPVBA0'
+    gemini_key = os.getenv('GEMINI_API_KEY', None)
     openai_key = os.getenv('OPENAI_API_KEY', None)
 
     ai_service = 'none'
