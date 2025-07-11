@@ -27,6 +27,30 @@ const MusicGenerationLoader: React.FC<MusicGenerationLoaderProps> = ({
 }) => {
   const [currentMessage, setCurrentMessage] = useState(0);
   const [dots, setDots] = useState('');
+  const [smoothProgress, setSmoothProgress] = useState(0);
+
+  // Smooth progress animation - reaches 100% in 90 seconds (1.5 minutes)
+  useEffect(() => {
+    if (!isVisible) {
+      setSmoothProgress(0);
+      return;
+    }
+
+    const startTime = Date.now();
+    const duration = 90000; // 90 seconds = 1.5 minutes
+
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const newProgress = Math.min((elapsed / duration) * 100, 100);
+      setSmoothProgress(newProgress);
+
+      if (newProgress >= 100) {
+        clearInterval(progressInterval);
+      }
+    }, 100); // Update every 100ms for smooth animation
+
+    return () => clearInterval(progressInterval);
+  }, [isVisible]);
 
   // Cycle through messages
   useEffect(() => {
@@ -138,10 +162,15 @@ const MusicGenerationLoader: React.FC<MusicGenerationLoaderProps> = ({
               <div className="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(progress, 100)}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
+                  animate={{ width: `${smoothProgress}%` }}
+                  transition={{ duration: 0.1, ease: "linear" }}
                   className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
                 />
+              </div>
+              {/* Progress percentage and time estimate */}
+              <div className="flex justify-between items-center mt-2 text-xs text-purple-300">
+                <span>{Math.round(smoothProgress)}%</span>
+                <span>~1.5 minutes</span>
               </div>
             </div>
 
@@ -150,6 +179,9 @@ const MusicGenerationLoader: React.FC<MusicGenerationLoaderProps> = ({
               <h3 className="text-lg font-semibold text-white mb-2">
                 Generating Your Music{dots}
               </h3>
+              <p className="text-sm text-purple-200 mb-4">
+                This process takes approximately 1.5 minutes
+              </p>
 
               {/* Messages Container - shows only current message */}
               <div className="min-h-[60px] flex flex-col justify-center">
