@@ -22,6 +22,8 @@ interface AdvancedSettings {
   warmth: AdvancedSetting;
   brightness: AdvancedSetting;
   instruments: AdvancedSetting;
+  dynamics: AdvancedSetting;
+  atmosphere: AdvancedSetting;
 }
 
 interface AdvancedPanelProps {
@@ -34,13 +36,14 @@ interface AdvancedPanelProps {
 const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advancedSettings, setAdvancedSettings }) => {
 
   const updateSetting = (key: keyof AdvancedSettings, enabled: boolean, value?: any) => {
-    setAdvancedSettings({
+    const newSettings: AdvancedSettings = {
       ...advancedSettings,
       [key]: {
         enabled,
         value: value !== undefined ? value : advancedSettings[key].value
       }
-    });
+    };
+    setAdvancedSettings(newSettings);
   };
 
   return (
@@ -124,7 +127,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                       ? 'bg-gradient-to-r from-accent-from/20 to-accent-to/20 text-accent-from border border-accent-from/30 shadow-sm'
                       : 'bg-white/10 text-white/60 border border-white/20'
                   }`}>
-                    {advancedSettings.style.enabled ? 'Default' : 'Custom'}
+                    {advancedSettings.style.enabled ? 'Custom' : 'Default'}
                   </span>
                 </div>
                 <StyleSelector
@@ -176,7 +179,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                       ? 'bg-gradient-to-r from-accent-from/20 to-accent-to/20 text-accent-from border border-accent-from/30 shadow-sm'
                       : 'bg-white/10 text-white/60 border border-white/20'
                   }`}>
-                    {advancedSettings.tempo.enabled ? 'Default' : 'Custom'}
+                    {advancedSettings.tempo.enabled ? 'Custom' : 'Default'}
                   </span>
                 </div>
                 <TempoInput
@@ -230,7 +233,7 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                       ? 'bg-gradient-to-r from-accent-from/20 to-accent-to/20 text-accent-from border border-accent-from/30 shadow-sm'
                       : 'bg-white/10 text-white/60 border border-white/20'
                   }`}>
-                    {advancedSettings.instruments.enabled ? 'Default' : 'Custom'}
+                    {advancedSettings.instruments.enabled ? 'Custom' : 'Default'}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -249,12 +252,8 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                   <div className="relative group">
                     <input
                       type="checkbox"
-                      checked={advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled}
-                      onChange={(e) => {
-                        updateSetting('bass', e.target.checked);
-                        updateSetting('drums', e.target.checked);
-                        updateSetting('melody', e.target.checked);
-                      }}
+                      checked={advancedSettings.dynamics.enabled}
+                      onChange={(e) => updateSetting('dynamics', e.target.checked)}
                       className="sr-only"
                       id="dynamics-checkbox"
                     />
@@ -262,14 +261,14 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                       htmlFor="dynamics-checkbox"
                       className={`
                         relative flex items-center justify-center w-6 h-6 rounded-lg cursor-pointer transition-all duration-300 ease-out
-                        ${(advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled)
+                        ${advancedSettings.dynamics.enabled
                           ? 'bg-gradient-to-br from-accent-from to-accent-to shadow-lg shadow-accent-from/25 scale-100'
                           : 'bg-white/10 border-2 border-white/30 hover:border-white/50 hover:bg-white/15'
                         }
                         group-hover:scale-105 group-active:scale-95
                       `}
                     >
-                      {(advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled) && (
+                      {advancedSettings.dynamics.enabled && (
                         <svg
                           className="w-3.5 h-3.5 text-white drop-shadow-sm"
                           fill="none"
@@ -279,18 +278,18 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
-                      {(advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled) && (
+                      {advancedSettings.dynamics.enabled && (
                         <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent-from to-accent-to opacity-30 blur-sm -z-10"></div>
                       )}
                     </label>
                   </div>
                   <h3 className="text-lg font-medium text-white">Dynamics</h3>
                   <span className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 ${
-                    (advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled)
+                    advancedSettings.dynamics.enabled
                       ? 'bg-gradient-to-r from-accent-from/20 to-accent-to/20 text-accent-from border border-accent-from/30 shadow-sm'
                       : 'bg-white/10 text-white/60 border border-white/20'
                   }`}>
-                    {(advancedSettings.bass.enabled || advancedSettings.drums.enabled || advancedSettings.melody.enabled) ? 'Default' : 'Custom'}
+                    {advancedSettings.dynamics.enabled ? 'Custom' : 'Default'}
                   </span>
                 </div>
                 <div className="space-y-4">
@@ -321,11 +320,8 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                   <div className="relative group">
                     <input
                       type="checkbox"
-                      checked={advancedSettings.warmth.enabled || advancedSettings.brightness.enabled}
-                      onChange={(e) => {
-                        updateSetting('warmth', e.target.checked);
-                        updateSetting('brightness', e.target.checked);
-                      }}
+                      checked={advancedSettings.atmosphere.enabled}
+                      onChange={(e) => updateSetting('atmosphere', e.target.checked)}
                       className="sr-only"
                       id="atmosphere-checkbox"
                     />
@@ -333,14 +329,14 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                       htmlFor="atmosphere-checkbox"
                       className={`
                         relative flex items-center justify-center w-6 h-6 rounded-lg cursor-pointer transition-all duration-300 ease-out
-                        ${(advancedSettings.warmth.enabled || advancedSettings.brightness.enabled)
+                        ${advancedSettings.atmosphere.enabled
                           ? 'bg-gradient-to-br from-accent-from to-accent-to shadow-lg shadow-accent-from/25 scale-100'
                           : 'bg-white/10 border-2 border-white/30 hover:border-white/50 hover:bg-white/15'
                         }
                         group-hover:scale-105 group-active:scale-95
                       `}
                     >
-                      {(advancedSettings.warmth.enabled || advancedSettings.brightness.enabled) && (
+                      {advancedSettings.atmosphere.enabled && (
                         <svg
                           className="w-3.5 h-3.5 text-white drop-shadow-sm"
                           fill="none"
@@ -350,18 +346,18 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({ isOpen, onToggle, advance
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       )}
-                      {(advancedSettings.warmth.enabled || advancedSettings.brightness.enabled) && (
+                      {advancedSettings.atmosphere.enabled && (
                         <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent-from to-accent-to opacity-30 blur-sm -z-10"></div>
                       )}
                     </label>
                   </div>
                   <h3 className="text-lg font-medium text-white">Atmosphere</h3>
                   <span className={`text-xs px-3 py-1.5 rounded-full font-medium transition-all duration-200 ${
-                    (advancedSettings.warmth.enabled || advancedSettings.brightness.enabled)
+                    advancedSettings.atmosphere.enabled
                       ? 'bg-gradient-to-r from-accent-from/20 to-accent-to/20 text-accent-from border border-accent-from/30 shadow-sm'
                       : 'bg-white/10 text-white/60 border border-white/20'
                   }`}>
-                    {(advancedSettings.warmth.enabled || advancedSettings.brightness.enabled) ? 'Default' : 'Custom'}
+                    {advancedSettings.atmosphere.enabled ? 'Custom' : 'Default'}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
