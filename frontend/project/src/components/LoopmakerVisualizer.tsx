@@ -475,6 +475,24 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
   const [dragStartTime, setDragStartTime] = useState(0);
   const lastSeekTime = useRef(0);
 
+  // Debug: sprawdź maksymalne pozycje bloków - HOOK MUSI BYĆ TUTAJ!
+  const maxBlockPosition = useMemo(() => {
+    const tracks = externalGetAllTracks ? externalGetAllTracks() : getAllTracks();
+    if (!tracks.length) return 0;
+
+    let maxEndPosition = 0;
+    tracks.forEach(track => {
+      track.notes.forEach((note: any) => {
+        const endPosition = note.step + note.steps;
+        if (endPosition > maxEndPosition) {
+          maxEndPosition = endPosition;
+        }
+      });
+    });
+
+    return maxEndPosition;
+  }, [visualSong, externalGetAllTracks]);
+
   // Handle timeline click for seeking - use actual timeline width
   const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!visualSong || masterDuration <= 0 || isDragging) return;
@@ -646,28 +664,9 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
   const { leftPanelWidth, trackHeight, tracks, timelineWidth } = getLayoutDimensions();
 
-  // Debug: sprawdź maksymalne pozycje bloków
-  const maxBlockPosition = useMemo(() => {
-    if (!tracks.length) return 0;
 
-    let maxEndPosition = 0;
-    tracks.forEach(track => {
-      track.notes.forEach(note => {
-        const endPosition = note.step + note.steps;
-        if (endPosition > maxEndPosition) {
-          maxEndPosition = endPosition;
-        }
-      });
-    });
 
-    return maxEndPosition;
-  }, [tracks]);
 
-  console.log('🎵 Block positions debug:', {
-    maxBlockPosition,
-    totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0,
-    blocksReachEnd: maxBlockPosition >= (visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0)
-  });
 
   // Debug layout dimensions AND duration
   console.log('🎵 Layout dimensions:', {
@@ -693,6 +692,12 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
     beatsPerBar: visualSong?.beatsPerBar,
     stepsPerBeat: visualSong?.stepsPerBeat,
     totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0
+  });
+
+  console.log('🎵 Block positions debug:', {
+    maxBlockPosition,
+    totalSteps: visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0,
+    blocksReachEnd: maxBlockPosition >= (visualSong ? (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4) : 0)
   });
 
   return (
@@ -850,28 +855,44 @@ const LoopmakerVisualizer: React.FC<LoopmakerVisualizerProps> = ({
 
                   {/* Note Blocks - NOWE: z połączonymi sąsiadującymi blokami */}
                   {mergeAdjacentNotes(track.notes).map((block: any, blockIndex: number) => {
-                    const totalSteps = (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4);
+                    // NAPRAWIONE: Użyj masterDuration zamiast totalSteps dla synchronizacji z timeline
+                    if (masterDuration <= 0 || !visualSong) {
+                      return null; // Nie renderuj bloków jeśli nie ma duration
+                    }
 
-                    // Calculate positions without scaling for better visual consistency
-                    const rawStartPercent = totalSteps > 0 ? (block.step / totalSteps) * 100 : 0;
-                    const rawWidthPercent = totalSteps > 0 ? (block.steps / totalSteps) * 100 : 1;
+                    const totalSteps = (visualSong.totalBars || 0) * (visualSong.beatsPerBar || 4) * (visualSong.stepsPerBeat || 4);
+                    const stepDuration = masterDuration / totalSteps; // Czas jednego stepu w sekundach
+
+                    // Oblicz pozycje w czasie (sekundy)
+                    const blockStartTime = block.step * stepDuration;
+                    const blockDuration = block.steps * stepDuration;
+
+                    // Konwertuj na procenty względem masterDuration
+                    const rawStartPercent = (blockStartTime / masterDuration) * 100;
+                    const rawWidthPercent = (blockDuration / masterDuration) * 100;
 
                     // Use raw positions for consistent visual layout
                     const startPercent = Math.max(0, Math.min(100, rawStartPercent));
                     const widthPercent = Math.max(1.0, rawWidthPercent); // Minimum 1% width for visibility
 
-                    // Debug block positioning (tylko dla pierwszego bloku każdego tracka)
-                    if (blockIndex === 0) {
-                      console.log(`🎵 Block positioning for ${track.name}:`, {
+                    // Debug block positioning (tylko dla pierwszego bloku pierwszego tracka)
+                    if (blockIndex === 0 && track.name === tracks[0]?.name) {
+                      console.log(`🎵 FIXED Block positioning for ${track.name}:`, {
                         blockStep: block.step,
                         blockSteps: block.steps,
                         totalSteps,
+                        stepDuration: stepDuration.toFixed(4),
+                        blockStartTime: blockStartTime.toFixed(4),
+                        blockDuration: blockDuration.toFixed(4),
+                        masterDuration: masterDuration.toFixed(4),
                         rawStartPercent: rawStartPercent.toFixed(2),
                         rawWidthPercent: rawWidthPercent.toFixed(2),
                         finalStartPercent: startPercent.toFixed(2),
                         finalWidthPercent: widthPercent.toFixed(2)
                       });
                     }
+
+
 
                     // Sprawdź czy którakolwiek z nut w bloku jest aktywna
                     const isActive = block.mergedNotes ?
