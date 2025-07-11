@@ -18,6 +18,8 @@ interface AdvancedSettings {
   warmth: AdvancedSetting;
   brightness: AdvancedSetting;
   instruments: AdvancedSetting;
+  dynamics: AdvancedSetting;
+  atmosphere: AdvancedSetting;
 }
 
 interface PromptSectionProps {
