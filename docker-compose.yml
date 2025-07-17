@@ -1,6 +1,7 @@
 services:
   backend:
     image: promptbeatai-backend
+    hostname: promptbeatai-backend
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -10,9 +11,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - SAMPLE_FOLDER=./assets/samples
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 
   frontend:
     image: promptbeatai-frontend
+    hostname: promptbeatai-frontend
     build:
       context: ./frontend/project
       dockerfile: ./Dockerfile
