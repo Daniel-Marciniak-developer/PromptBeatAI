@@ -1,0 +1,24 @@
+services:
+  backend:
+    image: promptbeatai-backend
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SAMPLE_FOLDER=./assets/samples
+
+  frontend:
+    image: promptbeatai-frontend
+    build:
+      context: ./frontend/project
+      dockerfile: ./Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - 5173:5173
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
