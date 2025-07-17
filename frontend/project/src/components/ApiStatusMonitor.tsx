@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
+// Konfiguracja API
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL!;
+
 interface ApiStatusMonitorProps {
   className?: string;
 }
@@ -24,7 +27,7 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
     const startTime = Date.now();
 
     try {
-      const response = await fetch('http://localhost:8000/health', {
+      const response = await fetch(API_BASE_URL + '/health', {
         method: 'GET',
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
@@ -163,7 +166,7 @@ export const ApiStatusMonitor: React.FC<ApiStatusMonitorProps> = ({ className = 
               <div className="text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="opacity-60">Endpoint:</span>
-                  <span>localhost:8000</span>
+                  <span>{API_BASE_URL}</span>
                 </div>
 
                 {apiHealth.aiService && (

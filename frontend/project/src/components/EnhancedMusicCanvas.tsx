@@ -8,6 +8,8 @@ import { FloatingMusicIcons, RotatingMusicIcons } from './MusicIcons';
 import { VisualSong } from '../types/LoopmakerTypes';
 import { loadSongFromJSON, LoopmakerParser } from '../utils/LoopmakerParser';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL!;
+
 interface EnhancedMusicCanvasProps {
   isGenerating: boolean;
   audioSrc?: string;
@@ -361,7 +363,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
 
 
         // If it's a backend URL, test if it's accessible
-        if (audioSrc.includes('localhost:8000') || audioSrc.includes('http')) {
+        if (audioSrc.includes(API_BASE_URL) || audioSrc.includes('http')) {
           try {
             // Try HEAD request first
             const response = await fetch(audioSrc, { method: 'HEAD' });
@@ -398,7 +400,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
       } catch (error) {
         console.warn('❌ Backend audio not accessible, falling back to local file:', error);
         // Fallback to local file only if it's not already a local file
-        if (audioSrc.includes('localhost:8000') || audioSrc.includes('http')) {
+        if (audioSrc.includes(API_BASE_URL) || audioSrc.includes('http')) {
           setEffectiveAudioSrc('/beat-freestyle.mp3');
         } else {
           setEffectiveAudioSrc(audioSrc);
