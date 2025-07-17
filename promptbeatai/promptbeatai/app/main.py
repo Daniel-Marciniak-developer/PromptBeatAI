@@ -2,7 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi_proxiedheadersmiddleware import ProxiedHeadersMiddleware
 
+from .middleware.rate_limiter import limiter
 from .routers.generate_song import router as generate_song_router
 
 
@@ -35,6 +40,12 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*']
 )
+
+app.add_middleware(ProxiedHeadersMiddleware)
+
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler) # type: ignore
 
 app.include_router(generate_song_router)
 
