@@ -132,9 +132,13 @@ Do not go lower than E2 in any case!
 
 ---
 
+NEVER USE NOTES LOWER THAN C4 FOR THE PIANO!
+
 To recap, you should answer in two parts:
 1. Composition draft
 2. JSON *OBJECT* representing Song
+
+ABSOLUTELY MAKE SURE ALL BARS OF THE SONG ARE COVERED, ESPECIALLY IF YOU USE REPEAT!!!
 
 **DO NOT CONFUSE OBJECT WITH SCHEMA!!!**
 
