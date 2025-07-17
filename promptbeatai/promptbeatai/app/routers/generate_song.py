@@ -11,6 +11,7 @@ import uuid
 from promptbeatai.ai.openai_wrapper import OpenAISongGeneratorClient
 from promptbeatai.ai.gemini_wrapper import GeminiSongGeneratorClient
 from promptbeatai.app.entities.generation_prompt import GenerationPrompt
+from promptbeatai.app.middleware.rate_limiter import limiter
 from promptbeatai.loopmaker.serialize import song_to_json
 from promptbeatai.loopmaker.core import Song
 
@@ -39,6 +40,7 @@ def generate_and_store_song(prompt: GenerationPrompt, song_id: str):
 
 
 @router.post('/generate')
+@limiter.limit('10/hour')
 async def generate_song(prompt: GenerationPrompt, request: Request, background_tasks: BackgroundTasks):
     logging.info('Song generation started')
     if os.getenv('DEBUG', 0) == '1':
