@@ -9,9 +9,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://promptbeatai.ptaqqqq.hackclub.app',
+        target: 'http://api.promptbeatai.ptaqqqq.hackclub.app',
         changeOrigin: true,
-        // rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

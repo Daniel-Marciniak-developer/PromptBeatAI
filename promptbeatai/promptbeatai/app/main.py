@@ -1,11 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from fastapi_proxiedheadersmiddleware import ProxiedHeadersMiddleware
 
 from .middleware.rate_limiter import limiter
 from .routers.generate_song import router as generate_song_router
@@ -41,8 +40,6 @@ app.add_middleware(
     allow_headers=['*']
 )
 
-app.add_middleware(ProxiedHeadersMiddleware)
-
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler) # type: ignore
@@ -50,9 +47,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler) # typ
 app.include_router(generate_song_router)
 
 @app.get('/health')
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint that shows which AI service is being used"""
     # Sprawdź zmienne środowiskowe bezpośrednio
+    logging.info(request.headers)
     gemini_key = os.getenv('GEMINI_API_KEY', None)
     openai_key = os.getenv('OPENAI_API_KEY', None)
 
