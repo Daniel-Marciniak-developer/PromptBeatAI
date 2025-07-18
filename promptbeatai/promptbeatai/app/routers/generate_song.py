@@ -34,9 +34,17 @@ song_store = {}
 
 
 def generate_and_store_song(prompt: GenerationPrompt, song_id: str):
-    song_store[song_id] = None
-    song = song_generator_client.request_song(prompt)
-    song_store[song_id] = song
+    successful = False
+    i = 0
+    while not successful and i < 5:
+        try:
+            song_store[song_id] = None
+            song = song_generator_client.request_song(prompt)
+            song_store[song_id] = song
+            successful = True
+        except Exception as e:
+            logging.error(f"Something went wrong {e}")
+            i += 1
 
 
 @router.post('/generate')

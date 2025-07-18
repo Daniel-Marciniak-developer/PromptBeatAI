@@ -124,7 +124,7 @@ class LoopInContext:
 
 class Song:
     def __init__(self, bpm: int, beats_per_bar: int = 4, steps_per_beat: int = 4):
-        self.bpm = bpm
+        self.bpm = bpm if bpm > 0 else 100  # If the LLM decides to put 0 here
         self.beats_per_bar = beats_per_bar
         self.steps_per_beat = steps_per_beat
         self.loops_in_context: list[LoopInContext] = []
