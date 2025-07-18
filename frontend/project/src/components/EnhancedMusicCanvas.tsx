@@ -469,6 +469,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title="Share"
+                  style={{ display: "none !important" }}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
@@ -650,7 +651,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
                   <div>
                     <label className="block text-white/80 font-medium mb-2">Format</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {(['mp3', 'wav', 'flac'] as const).map((format) => (
+                      {(['wav'] as const).map((format) => (
                         <button
                           key={format}
                           onClick={() => setDownloadFormat(format)}
@@ -667,7 +668,7 @@ const EnhancedMusicCanvas: React.FC<EnhancedMusicCanvasProps> = ({
                   </div>
 
                   {/* Quality Selection */}
-                  <div>
+                  <div style={{ display: "none !important"}}>
                     <label className="block text-white/80 font-medium mb-2">Quality</label>
                     <div className="grid grid-cols-2 gap-2">
                       {downloadFormat === 'flac' ? (

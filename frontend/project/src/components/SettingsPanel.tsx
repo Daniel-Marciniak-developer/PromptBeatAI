@@ -117,9 +117,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                 <label className="block text-white/80 text-sm mb-2">Download Format</label>
                 <SelectDropdown
                   options={[
-                    { value: 'mp3', label: 'MP3 (Compressed)' },
+                    // { value: 'mp3', label: 'MP3 (Compressed)' },
                     { value: 'wav', label: 'WAV (Uncompressed)' },
-                    { value: 'flac', label: 'FLAC (Lossless)' }
+                    // { value: 'flac', label: 'FLAC (Lossless)' }
                   ]}
                   value={settings.downloadFormat}
                   onChange={(value) => handleUpdateSetting('downloadFormat', value as any)}
