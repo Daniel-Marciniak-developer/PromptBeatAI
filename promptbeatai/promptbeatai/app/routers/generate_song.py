@@ -31,12 +31,13 @@ else:
     raise RuntimeError("No API key provided for either Gemini or OpenAI")
 
 song_store = {}
+failed_songs = set()
 
 
 def generate_and_store_song(prompt: GenerationPrompt, song_id: str):
     successful = False
     i = 0
-    while not successful and i < 5:
+    while not successful and i < 3:
         try:
             song_store[song_id] = None
             song = song_generator_client.request_song(prompt)
@@ -45,6 +46,8 @@ def generate_and_store_song(prompt: GenerationPrompt, song_id: str):
         except Exception as e:
             logging.error(f"Something went wrong {e}")
             i += 1
+    if not successful:
+        failed_songs.add(song_id)
 
 
 @router.post('/generate')
@@ -247,6 +250,8 @@ async def get_song(song_id: str):
     if song_id not in song_store:
         raise HTTPException(status_code=404, detail='Song not found')
     song = song_store[song_id]
+    if song_id in failed_songs:
+        return {'id': song_id, 'status': 'failed'}
     if song is None:
         return {'id': song_id, 'status': 'pending'}
     return {'id': song_id, 'status': 'complete', 'result': song_to_json(song)}

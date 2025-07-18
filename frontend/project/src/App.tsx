@@ -159,6 +159,10 @@ const AppContent: React.FC = () => {
         } else if (status === 'complete') {
           clearInterval(progressInterval);
           setGenerationProgress(100);
+        } else if (status === 'failed') {
+          // TODO: make it prettier
+          alert('Something went wrong. Please try again.')
+          window.location.reload()
         }
       });
 
